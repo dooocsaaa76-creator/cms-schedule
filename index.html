@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서초CMS영재관 일정관리</title>
+<style>
+  :root {
+    --bg: #f5f3ee;
+    --bg2: #ffffff;
+    --border: #e0ddd6;
+    --text: #1a1a18;
+    --text2: #5a5955;
+    --accent: #2c5282;
+    --accent2: #ebf2fb;
+    --exam: #fde8d8;
+    --examtext: #7b3a10;
+    --vacation: #d4edda;
+    --vactext: #145a24;
+    --highlight: #fbbf24;
+    --ma-bg: #7b3a10;
+    --ma-text: #fff;
+    --first-bg: #1a4a8a;
+    --first-text: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  .nav { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  .nav h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .nav .nav-sub { font-size: 12px; opacity: 0.75; }
+  .nav .back-btn { margin-left: auto; background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .nav .back-btn:hover { background: rgba(255,255,255,0.3); }
+
+  /* MAIN */
+  .main { padding: 32px 24px; max-width: 100%; margin: 0 auto; }
+
+  /* HOME */
+  .home-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 600px; margin: 60px auto; }
+  .home-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; cursor: pointer; text-align: center; transition: all 0.2s; }
+  .home-card:hover { border-color: var(--accent); box-shadow: 0 4px 20px rgba(44,82,130,0.12); transform: translateY(-2px); }
+  .home-card .icon { font-size: 36px; margin-bottom: 12px; }
+  .home-card .title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .home-card .desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+  /* FILTER BAR */
+  .filter-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-group label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-group select, .filter-group input[type="date"] { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 13px; background: var(--bg); color: var(--text); min-width: 140px; font-family: inherit; }
+  .filter-group select:focus, .filter-group input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  .btn { border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1a3d6e; }
+  .btn-secondary { background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover { background: var(--accent2); border-color: var(--accent); }
+  .btn-success { background: #27ae60; color: #fff; }
+  .btn-success:hover { background: #1e8449; }
+
+  /* SCHEDULE GRID */
+  .schedule-wrap { overflow-x: auto; overflow-y: auto; max-height: 72vh; border-radius: 10px; border: 1px solid var(--border); position: relative; width: 100%; }
+  .schedule-table { border-collapse: separate; border-spacing: 0; font-size: 12px; white-space: nowrap; background: var(--bg2); width: max-content; min-width: 100%; }
+  .schedule-table th, .schedule-table td { border: 1px solid var(--border); padding: 0; }
+  .schedule-table .sticky-row th { position: sticky; top: 0; z-index: 10; }
+  .schedule-table .sticky-row-2 th { position: sticky; top: 29px; z-index: 10; }
+  .schedule-table .sticky-col { position: sticky; left: 0; z-index: 5; background: var(--bg2); }
+  .schedule-table .sticky-col-2 { position: sticky; z-index: 5; background: var(--bg2); }
+  .schedule-table .header-date { background: #2c5282; color: #fff; text-align: center; font-weight: 700; padding: 6px 8px; min-width: 32px; position: sticky; top: 0; z-index: 20; }
+  .schedule-table .header-day { text-align: center; padding: 4px 8px; font-size: 11px; min-width: 32px; position: sticky; top: 31px; z-index: 20; }
+  .schedule-table .col-fixed { position: sticky; z-index: 5; background: var(--bg2); }
+  .schedule-table tr:hover .col-fixed { background: var(--accent2); }
+  .schedule-table .col-fixed-0 { left: 0; }
+  .schedule-table .col-fixed-1 { left: 164px; }
+  .schedule-table .col-fixed-2 { left: 258px; }
+  .schedule-table .col-fixed-3 { left: 352px; }
+  .schedule-table .hdr-fixed-0 { position: sticky; left: 0;     top: 0; z-index: 40; background: #2c5282; color:#fff; }
+  .schedule-table .hdr-fixed-1 { position: sticky; left: 164px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
+  .schedule-table .hdr-fixed-2 { position: sticky; left: 258px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
+  .schedule-table .hdr-fixed-3 { position: sticky; left: 352px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
+  .schedule-table .hdr-day-fixed-0 { position: sticky; left: 0;     top: 31px; z-index: 40; background: #e8edf5; }
+  .schedule-table .hdr-day-fixed-1 { position: sticky; left: 164px; top: 31px; z-index: 40; background: #e8edf5; }
+  .schedule-table .hdr-day-fixed-2 { position: sticky; left: 258px; top: 31px; z-index: 40; background: #e8edf5; }
+  .schedule-table .hdr-day-fixed-3 { position: sticky; left: 352px; top: 31px; z-index: 40; background: #e8edf5; }
+  .schedule-table .hdr-fixed { position: sticky; z-index: 30; background: #2c5282; }
+  .schedule-table .hdr-day-fixed { position: sticky; z-index: 30; }
+  .header-day.sat { background: #dbeafe; color: #1a56aa; }
+  .header-day.sun { background: #fee2e2; color: #b91c1c; }
+  .header-day.weekday { background: #f3f4f6; color: #374151; }
+  .schedule-table .col-info { padding: 5px 10px; min-width: 90px; font-size: 12px; white-space: nowrap; }
+  .schedule-table .col-info.col-class { font-size: 11px; color: var(--text2); min-width: 160px; }
+  .schedule-table tr:hover .col-info { background: var(--accent2); }
+  .cell-exam { background: var(--exam); }
+  .cell-vacation { background: var(--vacation); }
+  .cell-ma { background: var(--ma-bg); color: var(--ma-text); text-align: center; font-weight: 700; font-size: 11px; padding: 5px 2px; }
+  .cell-first { background: var(--first-bg); color: var(--first-text); text-align: center; font-weight: 700; font-size: 11px; padding: 5px 2px; }
+  .cell-sat-exam { background: #f5c4a0; }
+  .cell-sun-exam { background: #f5c4a0; }
+  .empty-cell { background: #fff; height: 28px; }
+
+  /* SCHOOL TABLE */
+  .school-table-wrap { overflow-x: auto; }
+  .school-table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--bg2); border-radius: 10px; overflow: hidden; }
+  .school-table th { background: var(--accent); color: #fff; padding: 10px 14px; text-align: center; font-weight: 600; white-space: nowrap; }
+  .school-table td { border: 1px solid var(--border); padding: 8px 14px; text-align: center; }
+  .school-table tr:hover td { background: var(--accent2); }
+  .school-table .school-name { text-align: left; font-weight: 600; }
+  .count-badge { display: inline-block; background: var(--accent2); color: var(--accent); border-radius: 12px; padding: 2px 10px; font-weight: 700; font-size: 13px; }
+  .date-pill { display: inline-block; background: #fff7e6; color: #7b4a00; border-radius: 6px; padding: 2px 8px; font-size: 12px; border: 1px solid #f6d860; }
+  .grade-badge { display: inline-block; background: #e0e7ff; color: #3730a3; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-right: 4px; vertical-align: middle; }
+  .exam-input-filled { background: #fff3cd !important; border-color: #f59e0b !important; }
+  .vac-input-filled  { background: #d1fae5 !important; border-color: #10b981 !important; }
+
+  /* UPLOAD AREA */
+  .upload-area { border: 2px dashed var(--border); border-radius: 16px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg2); }
+  .upload-area:hover { border-color: var(--accent); background: var(--accent2); }
+  .upload-area .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-area p { font-size: 14px; color: var(--text2); }
+  .upload-area strong { color: var(--accent); }
+  #fileInput { display: none; }
+  .preview-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 16px; max-height: 300px; overflow-y: auto; }
+  .preview-row { display: flex; gap: 8px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .preview-row:last-child { border-bottom: none; }
+  .tag { background: var(--accent2); color: var(--accent); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+  .status-bar { background: var(--accent2); border: 1px solid #b8d4f0; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--accent); margin-top: 12px; }
+
+  /* SCHOOL SCHEDULE INPUT */
+  .school-input-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; min-width: 0; }
+  .school-input-header { background: var(--accent2); padding: 10px 18px; font-weight: 700; font-size: 14px; color: var(--accent); cursor: pointer; display: grid; grid-template-columns: 1fr 52px auto 20px; align-items: center; gap: 8px; }
+  .school-input-header .sch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .school-input-header .sch-level-badge { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border-radius: 4px; padding: 2px 0; white-space: nowrap; text-align: center; }
+  .school-input-header .sch-arrow { font-size: 13px; color: var(--accent); text-align: right; }
+  .sch-save-btn { background: #27ae60; color: #fff; border: none; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; transition: background 0.15s; }
+  .sch-save-btn:hover { background: #1e8449; }
+  .sch-save-btn.saving { background: #f39c12; }
+  .sch-save-btn.done   { background: #2c5282; }
+  .school-input-body { padding: 16px 18px; overflow-x: auto; }
+  .input-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px; }
+  .vac-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  .input-item { display: flex; flex-direction: column; gap: 4px; }
+  .input-item label { font-size: 12px; color: var(--text2); font-weight: 600; }
+  .input-item input[type="date"] { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; background: var(--bg2); color: var(--text); font-family: inherit; width: 100%; min-width: 0; cursor: pointer; box-sizing: border-box; }
+  .input-item input[type="date"]:hover { border-color: var(--accent); }
+  .input-item input:focus { outline: 2px solid var(--accent); }
+  .grade-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .grade-tab { border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; background: var(--bg); }
+  .grade-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .si-level-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 20px; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+  .si-level-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .si-level-btn:hover { border-color: var(--accent); }
+  .si-level-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* EXAM BLOCK — 내신 입력 카드 */
+  .exam-block { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; background: var(--bg); }
+  .exam-block.exam-input-filled { background: #fffbeb; border-color: #f59e0b; }
+  .exam-block-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .exam-block-label { font-size: 12px; font-weight: 700; color: var(--text2); min-width: 160px; flex-shrink: 0; }
+  .exam-block-chks { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .exam-block-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .exam-date-item { display: flex; flex-direction: column; gap: 3px; }
+  .exam-date-label { font-size: 11px; color: var(--text2); font-weight: 600; }
+  .exam-date-input { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; background: var(--bg2); color: var(--text); font-family: inherit; cursor: pointer; box-sizing: border-box; }
+  .exam-date-input:hover { border-color: var(--accent); }
+  .exam-date-input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  /* 내신 블록 레이아웃 */
+  .exam-blocks-row2 { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  .exam-blocks-row3 { display: grid; grid-template-columns: repeat(3, minmax(240px, 1fr)); gap: 10px; margin-bottom: 8px; }
+  /* 내신 블록 2열 그리드 (구 클래스 호환) */
+  .exam-blocks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+
+  .section-title { font-size: 13px; font-weight: 700; color: var(--accent); margin: 12px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--accent2); }
+  .exam-input-filled { background: #fffbeb !important; border-color: #f59e0b !important; }
+  .vac-filled { background: #fffbeb; border-radius: 6px; padding: 4px 6px; border: 1px solid #f59e0b; }
+  .vac-filled label { color: #92400e; font-weight: 700; }
+  .exam-input-filled .section-title { color: #92400e; }
+
+  /* PAGE display */
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+  .info-banner { background: var(--accent2); border: 1px solid #b8d4f0; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--accent); margin-bottom: 16px; }
+  .combo-list { position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+  .combo-list div { padding:7px 10px;font-size:13px;cursor:pointer; }
+  .combo-list div:hover { background:var(--accent2); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .legend-box { width: 20px; height: 16px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+
+  /* ADMIN PASSWORD MODAL */
+  .admin-modal-bg { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center; }
+  .admin-modal-bg.open { display:flex; }
+  .admin-modal { background:#fff;border-radius:16px;padding:32px 28px;max-width:380px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.25);text-align:center; }
+  .admin-modal h3 { font-size:18px;font-weight:700;margin-bottom:8px; }
+  .admin-modal p  { font-size:13px;color:#5a5955;margin-bottom:20px;line-height:1.6; }
+  .admin-modal input { width:100%;border:1px solid #e0ddd6;border-radius:8px;padding:10px 12px;font-size:15px;letter-spacing:4px;text-align:center;margin-bottom:8px;font-family:inherit;outline:none; }
+  .admin-modal input:focus { border-color:#2c5282; }
+  .admin-modal .err-msg { font-size:12px;color:#c0392b;min-height:18px;margin-bottom:10px; }
+  .admin-modal .btn-row { display:flex;gap:8px;justify-content:center; }
+  .page-locked { position:relative; }
+  .page-locked::after { content:'🔒 관리자 전용 — 비밀번호가 필요합니다';position:absolute;inset:0;background:rgba(245,243,238,0.92);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#2c5282;border-radius:12px;pointer-events:none; }
+
+  /* PRINT */
+  @media print {
+    .nav, .filter-bar, .legend, .btn, #homeBtn { display: none !important; }
+    .main { padding: 8px; }
+    .schedule-wrap { max-height: none !important; overflow: visible !important; border: none; }
+    .schedule-table { font-size: 10px; }
+    .schedule-table th, .schedule-table td { position: static !important; }
+    body { background: #fff; }
+    .page { display: block !important; }
+    #page-home, #page-upload, #page-schedule-input, #page-school-view { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <h1>📚 서초CMS영재관</h1>
+  <span class="nav-sub">내신·방학 일정 관리</span>
+  <button class="back-btn" id="homeBtn" onclick="showPage('home')" style="display:none">🏠 홈으로</button>
+</div>
+
+<!-- HOME -->
+<div class="page active main" id="page-home">
+  <div style="text-align:center; margin-bottom:8px; color:var(--text2); font-size:13px;">관리할 메뉴를 선택하세요</div>
+  <div id="sheetsStatusBanner" style="display:none;max-width:600px;margin:0 auto 16px;padding:10px 16px;border-radius:8px;font-size:13px;text-align:center;"></div>
+  <div class="home-grid">
+    <div class="home-card" onclick="showPage('student-view')">
+      <div class="icon">📋</div>
+      <div class="title">학생별 일정보기</div>
+      <div class="desc">반·이름·학교·학년별 필터로 내신/방학 일정을 시각적으로 확인</div>
+    </div>
+    <div class="home-card" onclick="showPage('school-view')">
+      <div class="icon">🏫</div>
+      <div class="title">학교별 현황보기</div>
+      <div class="desc">학교별 학년별 인원 현황 및 내신·방학 일정 확인</div>
+    </div>
+    <div class="home-card" onclick="requireAdmin('upload')">
+      <div class="icon">📤</div>
+      <div class="title">학생명단 업로드</div>
+      <div class="desc">엑셀 파일로 학생 명단(반·이름·학교·학년)을 업로드 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
+    </div>
+    <div class="home-card" onclick="requireAdmin('schedule-input')">
+      <div class="icon">📅</div>
+      <div class="title">학교별 일정 입력</div>
+      <div class="desc">학교별 내신·방학 시작일·종료일 입력 및 수정 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
+    </div>
+    <div class="home-card" onclick="requireAdmin('sched-upload')" style="grid-column:1/-1;max-width:600px;margin:0 auto;">
+      <div class="icon">📊</div>
+      <div class="title">학교별 일정 일괄 업로드</div>
+      <div class="desc">엑셀 파일로 모든 학교 내신·방학 일정을 한 번에 가져오기 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:24px;">
+    <button class="btn btn-secondary" onclick="requireAdmin('apiModal')" style="font-size:12px;padding:6px 16px;">⚙️ Google Sheets 연동 설정</button>
+    <button class="btn btn-secondary" onclick="syncFromSheets()" style="font-size:12px;padding:6px 16px;margin-left:8px;">🔄 Sheets에서 데이터 불러오기</button>
+  </div>
+
+  <!-- API 설정 모달 -->
+  <div id="apiModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:none;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:8px;">⚙️ Google Sheets 연동 설정</h2>
+      <p style="font-size:13px;color:#5a5955;margin-bottom:20px;line-height:1.6;">Apps Script 웹 앱 URL을 입력하면 모든 기기에서 같은 데이터를 공유합니다.</p>
+      <label style="font-size:12px;font-weight:600;color:#5a5955;">Apps Script 웹 앱 URL</label>
+      <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." 
+        style="width:100%;border:1px solid #e0ddd6;border-radius:8px;padding:10px 12px;font-size:13px;margin:6px 0 16px;font-family:inherit;">
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeApiModal()">취소</button>
+        <button class="btn btn-primary" onclick="saveApiUrl()">저장 및 연결 테스트</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PASSWORD MODAL -->
+<div class="admin-modal-bg" id="adminModalBg">
+  <div class="admin-modal">
+    <div style="font-size:36px;margin-bottom:8px;">🔐</div>
+    <h3>관리자 인증</h3>
+    <p>이 기능은 관리자만 사용할 수 있습니다.<br>비밀번호를 입력해주세요.</p>
+    <input type="password" id="adminPwInput" placeholder="비밀번호" maxlength="20"
+      onkeydown="if(event.key==='Enter')checkAdminPw()"
+      oninput="document.getElementById('adminPwErr').textContent=''">
+    <div class="err-msg" id="adminPwErr"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeAdminModal()">취소</button>
+      <button class="btn btn-primary" onclick="checkAdminPw()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div class="page main" id="page-upload">
+  <div class="page-title">📤 학생명단 업로드</div>
+  <div class="page-sub">엑셀 파일(.xlsx, .xls, .csv)에서 학생 명단을 업로드합니다</div>
+  <div class="info-banner">
+    💡 엑셀 파일의 열 순서: <strong>ID, 이름, 닉네임, 학년, 로그인ID, 입시계정여부, 성별, 학교, 클래스, 교실, 교사, 클래스상태, 학생상태, ...</strong> — 학교명은 8번째 열, 이름은 2번째 열, 클래스는 9번째 열, 학년은 4번째 열에서 읽어옵니다
+  </div>
+  <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon">📁</div>
+    <p><strong>클릭하여 파일 선택</strong> 또는 파일을 여기로 드래그</p>
+    <p style="margin-top:6px; font-size:12px;">.xlsx, .xls, .csv 파일 지원</p>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)">
+  <div id="uploadStatus"></div>
+  <div id="previewSection" style="display:none">
+    <div class="status-bar" id="uploadInfo"></div>
+    <div class="preview-box" id="previewBox"></div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button class="btn btn-primary" onclick="confirmUpload()">✅ 업로드 확정</button>
+      <button class="btn btn-secondary" onclick="cancelUpload()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE EXCEL UPLOAD (별도 페이지) -->
+<div class="page main" id="page-sched-upload">
+  <div class="page-title">📊 학교별 일정 일괄 업로드</div>
+  <div class="page-sub">엑셀 파일에서 학교별 내신·방학 일정을 한 번에 가져옵니다</div>
+  <div class="info-banner" style="margin-bottom:16px;">
+    💡 <strong>엑셀 열 순서:</strong> A=학교명, B=1학기중간, C=1학기기말, D=여름방학식/개학식, E=2학기중간, F=2학기기말, G=겨울방학식/개학식/종업식<br>
+    <strong>날짜 형식:</strong> <code>04.19-04.20(2,3)</code> 또는 <code>04.19-04.20</code> — 연도는 자동으로 현재 연도 적용
+  </div>
+  <div class="upload-area" onclick="document.getElementById('schedFileInput').click()" id="schedUploadArea">
+    <div class="upload-icon">📊</div>
+    <p><strong>클릭하여 일정 엑셀 파일 선택</strong> 또는 드래그앤드롭</p>
+    <p style="margin-top:6px;font-size:12px;">.xlsx, .xls 파일 지원</p>
+  </div>
+  <input type="file" id="schedFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSchedFileUpload(event)">
+  <div id="schedUploadStatus"></div>
+  <div id="schedPreviewSection" style="display:none;">
+    <div class="status-bar" id="schedUploadInfo"></div>
+    <div class="preview-box" id="schedPreviewBox"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="confirmSchedUpload()">✅ 일정 적용</button>
+      <button class="btn btn-secondary" onclick="cancelSchedUpload()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE INPUT -->
+<div class="page main" id="page-schedule-input">
+  <div class="page-title">📅 학교별 일정 입력</div>
+  <div class="page-sub">학교별 내신 및 방학 일정을 입력하세요. 학생명단 업로드 후 학교 목록이 자동으로 생성됩니다.</div>
+  <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="btn si-level-btn active" id="si-btn-all" onclick="setSILevel('')">전체</button>
+    <button class="btn si-level-btn" id="si-btn-초등" onclick="setSILevel('초등')">초등</button>
+    <button class="btn si-level-btn" id="si-btn-중등" onclick="setSILevel('중등')">중등</button>
+    <button class="btn si-level-btn" id="si-btn-고등" onclick="setSILevel('고등')">고등</button>
+  </div>
+  <div id="scheduleInputContent"></div>
+</div>
+
+<!-- STUDENT VIEW -->
+<div class="page main" id="page-student-view">
+  <div class="page-title">📋 학생별 일정보기</div>
+  <div class="page-sub">필터를 선택하면 학생별 내신/방학 일정을 달력형으로 확인할 수 있습니다</div>
+  <div class="filter-bar">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>학교급</label>
+        <select id="f-schoollevel" onchange="onLevelChange()">
+          <option value="">전체</option>
+          <option value="초등">초등</option>
+          <option value="중등">중등</option>
+          <option value="고등">고등</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>학년</label>
+        <select id="f-grade"><option value="">전체</option></select>
+      </div>
+      <div class="filter-group">
+        <label>내신/방학</label>
+        <select id="f-type">
+          <option value="">전체</option>
+          <option value="1학기중간">1학기 중간</option>
+          <option value="1학기기말">1학기 기말</option>
+          <option value="2학기중간">2학기 중간</option>
+          <option value="2학기기말">2학기 기말</option>
+          <option value="여름방학">여름방학</option>
+          <option value="겨울방학">겨울방학</option>
+        </select>
+      </div>
+      <div class="filter-group" style="position:relative;">
+        <label>반</label>
+        <input type="text" id="f-class-input" placeholder="전체 또는 입력" autocomplete="off"
+          oninput="filterCombo('f-class-list','f-class-input')" onfocus="showCombo('f-class-list')" onblur="hideCombo('f-class-list')"
+          style="border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;background:var(--bg);color:var(--text);min-width:140px;font-family:inherit;">
+        <div id="f-class-list" class="combo-list" style="display:none;"></div>
+      </div>
+      <div class="filter-group" style="position:relative;">
+        <label>이름</label>
+        <input type="text" id="f-name-input" placeholder="전체 또는 입력" autocomplete="off"
+          oninput="filterCombo('f-name-list','f-name-input')" onfocus="showCombo('f-name-list')" onblur="hideCombo('f-name-list')"
+          style="border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;background:var(--bg);color:var(--text);min-width:120px;font-family:inherit;">
+        <div id="f-name-list" class="combo-list" style="display:none;"></div>
+      </div>
+      <div class="filter-group" style="position:relative;">
+        <label>학교</label>
+        <input type="text" id="f-school-input" placeholder="전체 또는 입력" autocomplete="off"
+          oninput="filterCombo('f-school-list','f-school-input')" onfocus="showCombo('f-school-list')" onblur="hideCombo('f-school-list')"
+          style="border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;background:var(--bg);color:var(--text);min-width:140px;font-family:inherit;">
+        <div id="f-school-list" class="combo-list" style="display:none;"></div>
+      </div>
+      <div class="filter-group">
+        <label>시작(일)</label>
+        <input type="date" id="f-start">
+      </div>
+      <div class="filter-group">
+        <label>종료(일)</label>
+        <input type="date" id="f-end">
+      </div>
+    </div>
+    <div class="filter-row" style="margin-top:10px;align-items:center;gap:16px;">
+      <span style="font-size:12px;color:var(--text2);">정렬:</span>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="radio" name="f-sort" value="class" checked> 반
+      </label>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="radio" name="f-sort" value="name"> 이름
+      </label>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="radio" name="f-sort" value="school"> 학교
+      </label>
+      <label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="radio" name="f-sort" value="grade"> 학년
+      </label>
+      <button class="btn btn-primary" style="margin-left:auto;" onclick="renderStudentView()">🔍 조회</button>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+    <div class="legend" style="margin-bottom:0;">
+      <div class="legend-item"><div class="legend-box" style="background:var(--exam)"></div> 내신기간</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--vacation)"></div> 방학기간</div>
+    </div>
+    <button class="btn btn-secondary" onclick="printStudentView()" style="display:flex;align-items:center;gap:6px;">🖨️ 인쇄</button>
+  </div>
+  <div id="studentViewOutput"></div>
+</div>
+
+<!-- SCHOOL VIEW -->
+<div class="page main" id="page-school-view">
+  <div class="page-title">🏫 학교별 현황보기</div>
+  <div class="page-sub">학교별 학년별 인원 현황 및 내신·방학 일정을 확인합니다</div>
+  <div class="filter-bar" style="margin-bottom:16px;">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>표시할 일정</label>
+        <select id="sv-type">
+          <option value="인원">인원현황만</option>
+          <option value="1학기중간">1학기 중간</option>
+          <option value="1학기기말">1학기 기말</option>
+          <option value="2학기중간">2학기 중간</option>
+          <option value="2학기기말">2학기 기말</option>
+          <option value="여름방학">여름방학</option>
+          <option value="겨울방학">겨울방학</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>학교급</label>
+        <select id="sv-level">
+          <option value="">전체</option>
+          <option value="초등">초등</option>
+          <option value="중등">중등</option>
+          <option value="고등">고등</option>
+        </select>
+      </div>
+      <div class="filter-group" style="justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="renderSchoolView()">🔍 조회</button>
+      </div>
+    </div>
+  </div>
+  <div id="schoolViewOutput"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ===== CONFIG =====
+window.API_URL = localStorage.getItem('cms_api_url') || 'YOUR_APPS_SCRIPT_URL_HERE';
+
+// ===== STATE =====
+let students = JSON.parse(localStorage.getItem('cms_students') || '[]');
+let schoolSchedules = JSON.parse(localStorage.getItem('cms_schedules') || '{}');
+let pendingStudents = [];
+let isSyncing = false;
+
+const DAYS_KO = ['일','월','화','수','목','금','토'];
+const TYPE_KEYS = {
+  '1학기중간': {start:'mid1_start', end:'mid1_end', label:'1학기 중간'},
+  '1학기기말': {start:'fin1_start', end:'fin1_end', label:'1학기 기말'},
+  '2학기중간': {start:'mid2_start', end:'mid2_end', label:'2학기 중간'},
+  '2학기기말': {start:'fin2_start', end:'fin2_end', label:'2학기 기말'},
+  '여름방학': {start:'sum_start', end:'sum_end', open:'sum_open', label:'여름방학'},
+  '겨울방학': {start:'win_start', end:'win_end', open:'win_open', close:'win_close', label:'겨울방학'},
+};
+
+// ===== SHEETS API =====
+function apiConfigured() {
+  const url = window.API_URL || '';
+  return !!(url && url !== 'YOUR_APPS_SCRIPT_URL_HERE' && url.startsWith('http'));
+}
+
+function showSyncStatus(msg, type='info') {
+  let bar = document.getElementById('syncStatusBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'syncStatusBar';
+    bar.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 2px 12px rgba(0,0,0,0.15);transition:opacity 0.4s;';
+    document.body.appendChild(bar);
+  }
+  const colors = {
+    info:    'background:#2c5282;color:#fff;',
+    success: 'background:#27ae60;color:#fff;',
+    error:   'background:#c0392b;color:#fff;',
+    loading: 'background:#f59e0b;color:#fff;',
+  };
+  bar.style.cssText += colors[type]||colors.info;
+  bar.textContent = msg;
+  bar.style.opacity = '1';
+  bar.style.display = 'block';
+  if (type !== 'loading') {
+    setTimeout(() => { bar.style.opacity='0'; setTimeout(()=>bar.style.display='none',400); }, 3000);
+  }
+}
+
+// Apps Script CORS 우회: JSONP 방식으로 GET 요청
+function apiGet(action) {
+  if (!apiConfigured()) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      delete window[cbName];
+      document.body.removeChild(script);
+      showSyncStatus('⚠️ 연결 시간 초과 — URL과 배포 설정을 확인해주세요', 'error');
+      resolve(null);
+    }, 15000);
+    window[cbName] = (data) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      if (data && data.error) {
+        showSyncStatus('⚠️ 서버 오류: ' + data.error, 'error');
+        resolve(null);
+      } else {
+        resolve(data);
+      }
+    };
+    script.src = `${window.API_URL}?action=${action}&callback=${cbName}`;
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      showSyncStatus('⚠️ 스크립트 로드 실패 — URL을 확인해주세요', 'error');
+      resolve(null);
+    };
+    document.body.appendChild(script);
+  });
+}
+
+// JSONP 단일 요청 (payload가 작을 때)
+function apiPost(action, data) {
+  if (!apiConfigured()) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return; settled = true;
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      showSyncStatus('⚠️ 저장 시간 초과', 'error');
+      resolve(null);
+    }, 20000);
+    window[cbName] = (resp) => {
+      if (settled) return; settled = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      resolve(resp);
+    };
+    const encoded = encodeURIComponent(JSON.stringify(data));
+    script.src = `${window.API_URL}?action=${action}&payload=${encoded}&callback=${cbName}`;
+    script.onerror = () => {
+      if (settled) return; settled = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      resolve(null);
+    };
+    document.body.appendChild(script);
+  });
+}
+
+// 학생 명단 전체 저장 — 20명씩 청크로 나눠서 순차 전송
+async function saveStudentsToSheets(studentList) {
+  const CHUNK = 20;
+  const total = studentList.length;
+  let sent = 0;
+  // 첫 청크는 clear=true (시트 초기화 후 저장)
+  for (let i = 0; i < total; i += CHUNK) {
+    const chunk = studentList.slice(i, i + CHUNK);
+    const isFirst = (i === 0);
+    showSyncStatus(`☁️ Sheets 저장 중... (${Math.min(i+CHUNK, total)}/${total}명)`, 'loading');
+    const r = await apiPost('saveStudentsChunk', { students: chunk, clear: isFirst });
+    if (!r) {
+      showSyncStatus('❌ Sheets 저장 실패 (청크 ' + (i/CHUNK+1) + ')', 'error');
+      return false;
+    }
+    sent += chunk.length;
+  }
+  return true;
+}
+
+// 앱 시작 시 Sheets에서 데이터 로드
+async function loadFromSheets() {
+  if (!apiConfigured()) return;
+  showSyncStatus('🔄 Google Sheets에서 데이터 로딩 중...', 'loading');
+  isSyncing = true;
+  try {
+    // getAll: 단일 요청으로 학생+일정 동시 수신 (속도 개선)
+    const allData = await apiGet('getAll');
+    const sData   = allData ? { students: allData.students }   : null;
+    const schData = allData ? { schedules: allData.schedules } : null;
+    if (sData && sData.students && sData.students.length > 0) {
+      students = sData.students;
+      localStorage.setItem('cms_students', JSON.stringify(students));
+    }
+    if (schData && schData.schedules) {
+      // Sheets 데이터를 기존 로컬 데이터에 머지 (Sheets 우선)
+      const sheetsData = schData.schedules;
+      Object.keys(sheetsData).forEach(school => {
+        if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+        if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+        const sheetsGrades = sheetsData[school].grades || {};
+        Object.keys(sheetsGrades).forEach(grade => {
+          // 해당 학년 데이터 전체를 Sheets 것으로 교체
+          schoolSchedules[school].grades[grade] = sheetsGrades[grade];
+        });
+      });
+      localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
+    }
+    showSyncStatus('✅ 데이터 로드 완료 (' + students.length + '명, ' + Object.keys(schoolSchedules).length + '개 학교)', 'success');
+  } catch(e) {
+    showSyncStatus('⚠️ 로드 실패 - 로컬 데이터 사용', 'error');
+  }
+  isSyncing = false;
+}
+
+// 로컬 저장 + Sheets 동기화
+function save() {
+  localStorage.setItem('cms_students', JSON.stringify(students));
+  localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
+}
+
+// 학교+학년 단위로 쪼개서 순차 전송 (URL 길이 제한 대응)
+// 각 전송 단위: 학교 1개 × 학년 1개의 일정 데이터
+async function saveScheduleToSheets(schoolsObj) {
+  if (!apiConfigured()) return false;
+  const data = schoolsObj || schoolSchedules;
+  const schools = Object.keys(data);
+
+  // 전송 단위 목록 생성 (학교×학년)
+  const units = [];
+  schools.forEach(school => {
+    const grades = (data[school] && data[school].grades) ? Object.keys(data[school].grades) : ['공통'];
+    if (grades.length === 0) {
+      units.push({ school, grade: '공통', gradeData: {} });
+    } else {
+      grades.forEach(grade => {
+        units.push({
+          school,
+          grade,
+          gradeData: data[school].grades[grade] || {}
+        });
+      });
+    }
+  });
+
+  let allOk = true;
+  for (let i = 0; i < units.length; i++) {
+    const { school, grade, gradeData } = units[i];
+    showSyncStatus(`☁️ Sheets 저장 중... (${i+1}/${units.length}) ${school} ${grade}`, 'loading');
+
+    // 단일 학교+학년 payload (매우 작음, URL 초과 불가)
+    const payload = { school, grade, ...gradeData };
+    const r = await apiPost('saveSchedule', payload);
+    if (!r || !r.ok) {
+      console.warn('저장 실패:', school, grade, r);
+      allOk = false;
+    }
+  }
+  return allOk;
+}
+
+// ===== PAGE NAV =====
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('homeBtn').style.display = id === 'home' ? 'none' : '';
+  if (id === 'student-view') initStudentFilters();
+  if (id === 'school-view') renderSchoolView();
+  if (id === 'schedule-input') renderScheduleInput();
+  if (id === 'sched-upload') { /* 별도 초기화 불필요 */ }
+}
+
+// ===== UPLOAD =====
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, {type: 'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      pendingStudents = [];
+      let header = rows[0];
+      // detect columns
+      let idxName=-1,idxSchool=-1,idxClass=-1,idxGrade=-1;
+      for(let i=0;i<header.length;i++){
+        const h=String(header[i]).trim();
+        if(h==='이름') idxName=i;
+        if(h==='학교') idxSchool=i;
+        if(h==='클래스'||h==='반') idxClass=i;
+        if(h==='학년') idxGrade=i;
+      }
+      // fallback positional
+      if(idxName<0) idxName=1;
+      if(idxSchool<0) idxSchool=7;
+      if(idxClass<0) idxClass=8;
+      if(idxGrade<0) idxGrade=3;
+
+      for(let i=1;i<rows.length;i++){
+        const row=rows[i];
+        if(!row[idxName]) continue;
+        const gradeRaw = String(row[idxGrade]||'').trim();
+        pendingStudents.push({
+          name: String(row[idxName]||'').trim(),
+          school: String(row[idxSchool]||'').trim(),
+          class: String(row[idxClass]||'').trim(),
+          grade: normalizeGrade(gradeRaw),
+        });
+      }
+      showPreview();
+    } catch(err) {
+      document.getElementById('uploadStatus').innerHTML = '<div style="color:red;padding:10px;">파일을 읽을 수 없습니다: '+err.message+'</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function normalizeGrade(g) {
+  g = g.replace(/\s/g,'');
+  const m = g.match(/(초|중|고|elementary|middle|high)?(\d+)/i);
+  if (!m) return g;
+  let prefix = m[1]||'';
+  if (/초|elem/i.test(prefix)) prefix='초';
+  else if (/중|mid/i.test(prefix)) prefix='중';
+  else if (/고|high/i.test(prefix)) prefix='고';
+  else {
+    const n=parseInt(m[2]);
+    prefix = n<=6?'초': n<=9?'중':'고';
+  }
+  const num = g.includes('grade')||g.includes('Grade') ? (parseInt(m[2])<=6?parseInt(m[2]):parseInt(m[2])-6) : parseInt(m[2]);
+  return prefix+num;
+}
+
+function getSchoolLevel(grade) {
+  if (!grade) return '';
+  if (grade.startsWith('초')) return '초등';
+  if (grade.startsWith('중')) return '중등';
+  if (grade.startsWith('고')) return '고등';
+  return '';
+}
+
+function showPreview() {
+  document.getElementById('previewSection').style.display='';
+  document.getElementById('uploadInfo').textContent = `📊 총 ${pendingStudents.length}명의 학생 데이터가 인식되었습니다`;
+  const box = document.getElementById('previewBox');
+  box.innerHTML = pendingStudents.slice(0,30).map(s=>
+    `<div class="preview-row"><span class="tag">${s.grade}</span><span style="min-width:80px">${s.name}</span><span style="color:var(--text2)">${s.school}</span><span style="margin-left:auto;font-size:11px;color:var(--text2)">${s.class}</span></div>`
+  ).join('') + (pendingStudents.length>30?`<div style="padding:8px;color:var(--text2);font-size:12px;">...외 ${pendingStudents.length-30}명</div>`:'');
+}
+
+async function confirmUpload() {
+  const existing = new Set(students.map(s=>s.name+'|'+s.school+'|'+s.grade));
+  let added = 0;
+  pendingStudents.forEach(s => {
+    const key = s.name+'|'+s.school+'|'+s.grade;
+    if (!existing.has(key)) { students.push(s); added++; }
+  });
+  pendingStudents.forEach(s => {
+    if (s.school && !schoolSchedules[s.school]) schoolSchedules[s.school] = {level: getSchoolLevel(s.grade), grades:{}};
+  });
+  save();
+  document.getElementById('previewSection').style.display='none';
+  document.getElementById('fileInput').value='';
+  pendingStudents=[];
+  // Sheets 저장
+  if (apiConfigured()) {
+    const ok = await saveStudentsToSheets(students);
+    if (ok) showSyncStatus(`✅ 총 ${students.length}명 Google Sheets 저장 완료!`, 'success');
+    else    showSyncStatus(`⚠️ 로컬 저장 완료, Sheets 저장 일부 실패`, 'error');
+  } else {
+    alert(`✅ ${added}명 추가 업로드 완료! (총 ${students.length}명)
+
+💡 Google Sheets 연동 시 자동 공유됩니다.`);
+  }
+}
+
+function cancelUpload() {
+  pendingStudents=[];
+  document.getElementById('previewSection').style.display='none';
+  document.getElementById('fileInput').value='';
+}
+
+// ===== SCHEDULE INPUT =====
+let siLevel = ''; // current school-level filter for schedule input
+
+function setSILevel(level) {
+  siLevel = level;
+  document.querySelectorAll('.si-level-btn').forEach(b => b.classList.remove('active'));
+  const id = level ? 'si-btn-'+level : 'si-btn-all';
+  const btn = document.getElementById(id);
+  if(btn) btn.classList.add('active');
+  renderScheduleInput();
+}
+
+async function renderScheduleInput() {
+  const el = document.getElementById('scheduleInputContent');
+
+  // Sheets 연동 상태면 먼저 최신 데이터 로드
+  if (apiConfigured() && !isSyncing) {
+    el.innerHTML = '<div class="info-banner">🔄 Google Sheets에서 일정 불러오는 중...</div>';
+    await loadFromSheets();
+  }
+
+  let schools = getAllSchools();
+  if(siLevel) schools = schools.filter(s => getSchoolLevel(getSchoolPrimaryGrade(s)) === siLevel);
+
+  if(!schools.length) {
+    el.innerHTML = '<div class="info-banner">⚠️ 학생명단을 먼저 업로드하거나 Sheets에서 데이터를 불러오세요.</div>';
+    return;
+  }
+  if(siLevel && !schools.length) {
+    el.innerHTML = '<div class="info-banner">해당 학교급의 학교가 없습니다.</div>';
+    return;
+  }
+
+  el.innerHTML = schools.map(school => buildSchoolInputBlock(school)).join('') +
+    `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-success" onclick="saveAllSchedules()">💾 전체 저장</button>
+      <button class="btn btn-secondary" onclick="renderScheduleInput()">🔄 새로고침</button>
+      <button class="btn" style="background:#e74c3c;color:#fff;margin-left:auto;" onclick="confirmResetAllSchedules()">🗑️ 전체 일정 초기화</button>
+    </div>`;
+}
+
+function getSchoolPrimaryGrade(school) {
+  const st = students.find(s => s.school === school);
+  if (st) return st.grade;
+  // students에 없으면 schoolSchedules의 grade 키에서 추정
+  const sch = schoolSchedules[school];
+  if (sch && sch.grades) {
+    const gradeKeys = Object.keys(sch.grades);
+    // '1학년','2학년','3학년' 있으면 중등
+    if (gradeKeys.some(g => g.endsWith('학년'))) return '중1';
+  }
+  return '';
+}
+
+// students + schoolSchedules 양쪽에서 학교 목록 합산
+function getAllSchools() {
+  const fromStudents  = students.map(s => s.school).filter(Boolean);
+  const fromSchedules = Object.keys(schoolSchedules);
+  return [...new Set([...fromStudents, ...fromSchedules])].sort();
+}
+
+function getSchoolGrades(school) {
+  // students에서 확인
+  const hasMiddle = students.some(s=>s.school===school && s.grade.startsWith('중'));
+  if (hasMiddle) return ['공통','1학년','2학년','3학년'];
+  // students에 없으면 schoolSchedules grade 키로 추정
+  const sch = schoolSchedules[school];
+  if (sch && sch.grades) {
+    const hasGradeKeys = Object.keys(sch.grades).some(g => g.endsWith('학년'));
+    if (hasGradeKeys) return ['공통','1학년','2학년','3학년'];
+  }
+  return ['공통'];
+}
+
+function getSchoolType(school) {
+  // students에서 확인
+  if(students.some(s=>s.school===school && s.grade.startsWith('초'))) return '초등';
+  if(students.some(s=>s.school===school && s.grade.startsWith('중'))) return '중등';
+  if(students.some(s=>s.school===school && s.grade.startsWith('고'))) return '고등';
+  // students에 없으면 학교명으로 추정
+  if(/초등|초교|elem/i.test(school)) return '초등';
+  if(/중학|중교|middle/i.test(school)) return '중등';
+  if(/고등|고교|high/i.test(school)) return '고등';
+  // schoolSchedules grade 키로 추정
+  const sch = schoolSchedules[school];
+  if (sch && sch.grades) {
+    const keys = Object.keys(sch.grades);
+    if (keys.some(g => g.endsWith('학년'))) return '중등';
+  }
+  return '중등'; // 기본값
+}
+
+function buildSchoolInputBlock(school) {
+  const sch = schoolSchedules[school] || {};
+  const grades = getSchoolGrades(school);
+  const schoolType = getSchoolType(school);      // '초등' | '중등' | '고등'
+  const isElem = schoolType === '초등';
+  const isMiddle = schoolType === '중등';
+  // 중등만 학년 탭 표시
+  const sId = escId(school);
+  // 방학 데이터: 공통 학년에서 읽음 (방학은 학년 구분 없음)
+  const vacData = (sch.grades && (sch.grades['공통'] || Object.values(sch.grades)[0])) || {};
+
+  // 내신 블록
+  const examHtml = isElem ? '' : (() => {
+    if(isMiddle) {
+      const exams = [
+        {key:'mid1',  label:'1학기 중간고사'},
+        {key:'fin1',  label:'1학기 기말고사'},
+        {key:'mid2',  label:'2학기 중간고사'},
+        {key:'fin2',  label:'2학기 기말고사 (중1·2)'},
+        {key:'fin2b', label:'2학기 기말고사 (중3)'},
+      ];
+      const [b_mid1, b_fin1, b_mid2, b_fin2, b_fin2b] = exams.map(e => buildDateInputsWithGrades(school, e.key, e.label, sch));
+      return `<div class="section-title">📝 내신 일정</div>
+        <div class="exam-blocks-row3">${b_mid1}${b_fin1}<div></div></div>
+        <div class="exam-blocks-row3">${b_mid2}${b_fin2}${b_fin2b}</div>`;
+    } else {
+      // 고등: 공통 데이터, 학년 체크박스 없음
+      const hData = (sch.grades && sch.grades['공통']) || {};
+      return `<div class="section-title">📝 내신 일정</div>
+    <div class="input-grid">
+      ${buildDateInputs(school,'mid1','1학기 중간고사',hData)}
+      ${buildDateInputs(school,'fin1','1학기 기말고사',hData)}
+      ${buildDateInputs(school,'mid2','2학기 중간고사',hData)}
+      ${buildDateInputs(school,'fin2','2학기 기말고사',hData)}
+    </div>`;
+    }
+  })();
+
+  const gradeTabsHtml = '';
+  const formHtml = `<div id="grade-form-${sId}">
+    ${examHtml}
+    <div class="section-title">🏖️ 방학 일정</div>
+    <div class="vac-grid">
+      <div class="input-item ${vacData.sum_start?'vac-filled':''}"><label>여름방학 방학식</label><input type="date" id="inp-${sId}-sum_start" value="${vacData.sum_start||''}" style="width:100%;cursor:pointer;" onchange="autoSetEndDate('${sId}','sum',30);updateVacFilled('${sId}','sum_start')"></div>
+      <div class="input-item ${vacData.sum_end?'vac-filled':''}"><label>여름방학 개학식</label><input type="date" id="inp-${sId}-sum_end" value="${vacData.sum_end||''}" style="width:100%;cursor:pointer;" onchange="updateVacFilled('${sId}','sum_end')"></div>
+      <div class="input-item ${vacData.win_start?'vac-filled':''}"><label>겨울방학 방학식</label><input type="date" id="inp-${sId}-win_start" value="${vacData.win_start||''}" style="width:100%;cursor:pointer;" onchange="onWinStartChange('${sId}');updateVacFilled('${sId}','win_start')"></div>
+      <div class="input-item ${vacData.win_end?'vac-filled':''}"><label>겨울방학 개학식</label><input type="date" id="inp-${sId}-win_end" value="${vacData.win_end||''}" style="width:100%;cursor:pointer;" onchange="updateVacFilled('${sId}','win_end')"></div>
+      <div class="input-item ${vacData.win_close?'vac-filled':''}"><label>겨울방학 종업식 (선택)</label><input type="date" id="inp-${sId}-win_close" value="${vacData.win_close||''}" style="width:100%;cursor:pointer;" onchange="updateVacFilled('${sId}','win_close')"></div>
+    </div>
+  </div>`;
+
+  const schoolEscForBtn = school.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `<div class="school-input-section">
+    <div class="school-input-header" onclick="toggleSchoolBlock('block-${sId}')">
+      <span class="sch-name">🏫 ${school}</span>
+      <span class="sch-level-badge">${schoolType}</span>
+      <span style="display:flex;gap:6px;">
+        <button class="sch-save-btn" id="savebtn-${sId}"
+          onclick="event.stopPropagation();saveOneSchool('${schoolEscForBtn}')"
+          title="${school} 일정만 저장">💾 저장</button>
+        <button class="sch-save-btn" style="background:#e74c3c;"
+          onclick="event.stopPropagation();confirmResetOneSchool('${schoolEscForBtn}')"
+          title="${school} 일정 초기화">🗑️</button>
+      </span>
+      <span class="sch-arrow" id="arrow-${sId}">▼</span>
+    </div>
+    <div class="school-input-body" id="block-${sId}" style="display:none">
+      ${gradeTabsHtml}
+      ${formHtml}
+    </div>
+  </div>`;
+}
+
+// Merge data from multiple selected grades: if all selected grades have same value → show it; else show empty
+function mergeGradeData(sch, selGrades) {
+  if(!sch.grades) return {};
+  const fields = ['mid1_start','mid1_end','fin1_start','fin1_end','mid2_start','mid2_end','fin2_start','fin2_end','fin2b_start','fin2b_end','sum_start','sum_end','win_start','win_end','win_close'];
+  const result = {};
+  fields.forEach(f => {
+    const vals = selGrades.map(g => (sch.grades[g]&&sch.grades[g][f])||'');
+    const allSame = vals.every(v=>v===vals[0]);
+    result[f] = allSame ? vals[0] : '';
+  });
+  return result;
+}
+
+function toggleGradeSel(schoolEsc, grade) {
+  const selKey = 'siSel_' + schoolEsc;
+  if(!window[selKey]) window[selKey] = new Set(['공통']);
+  const sel = window[selKey];
+  const fields = ['mid1_start','mid1_end','fin1_start','fin1_end','mid2_start','mid2_end','fin2_start','fin2_end','sum_start','sum_end','win_start','win_end','win_close'];
+  const schoolName = Object.keys(schoolSchedules).find(s=>escId(s)===schoolEsc)||schoolEsc;
+
+  // ① 현재 폼 값을 현재 선택된 모든 학년에 즉시 저장
+  if(!schoolSchedules[schoolName].grades) schoolSchedules[schoolName].grades = {};
+  const currentFormData = {};
+  fields.forEach(f => {
+    const el = document.getElementById(`inp-${schoolEsc}-${f}`);
+    if(el && el.value) currentFormData[f] = el.value;
+  });
+  [...sel].forEach(g => {
+    if(!schoolSchedules[schoolName].grades[g]) schoolSchedules[schoolName].grades[g] = {};
+    fields.forEach(f => {
+      if(currentFormData[f]) schoolSchedules[schoolName].grades[g][f] = currentFormData[f];
+      else if(schoolSchedules[schoolName].grades[g][f] && !currentFormData[f]) {
+        // 지운 경우 반영
+        delete schoolSchedules[schoolName].grades[g][f];
+      }
+    });
+  });
+
+  // ② 선택 토글
+  if(sel.has(grade)) {
+    if(sel.size===1) return; // 최소 1개 유지
+    sel.delete(grade);
+  } else {
+    sel.add(grade);
+  }
+
+  // ③ 탭 스타일 갱신
+  ['공통','1학년','2학년','3학년'].forEach(g => {
+    const tab = document.getElementById(`tab-${schoolEsc}-${escId(g)}`);
+    if(tab) tab.className = 'grade-tab' + (sel.has(g)?' active':'');
+  });
+
+  // ④ 새로 선택된 학년들의 데이터 병합해서 폼에 표시
+  const sch = schoolSchedules[schoolName]||{};
+  const data = mergeGradeData(sch, [...sel]);
+  fields.forEach(f => {
+    const el = document.getElementById(`inp-${schoolEsc}-${f}`);
+    if(el) el.value = data[f]||'';
+  });
+}
+
+function buildDateInputs(school, key, label, data) {
+  const sId = escId(school);
+  const filled = !!(data[key+'_start'] && data[key+'_end']);
+  return `<div id="examblock-${sId}-${key}" style="border:1px solid ${filled?'#f59e0b':'var(--border)'};border-radius:8px;padding:10px;${filled?'background:#fff3cd;':''}" class="${filled?'exam-input-filled':''}">
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">${label}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="input-item" style="flex:1;min-width:120px;"><label>시작일</label><input type="date" id="inp-${sId}-${key}_start" value="${data[key+'_start']||''}" onchange="onHighInputChange('${sId}','${key}');autoSetEndDate('${sId}','${key}',0)"></div>
+      <div class="input-item" style="flex:1;min-width:120px;"><label>종료일</label><input type="date" id="inp-${sId}-${key}_end" value="${data[key+'_end']||''}" onchange="onHighInputChange('${sId}','${key}')"></div>
+    </div>
+  </div>`;
+}
+
+function updateVacFill(sId) {
+  const pairs = [['sum_start','sum_end'],['win_start','win_end']];
+  // update fill class on parent input-item for vacation inputs
+}
+function onHighInputChange(sId, key) {
+  const startEl = document.getElementById('inp-'+sId+'-'+key+'_start');
+  const endEl   = document.getElementById('inp-'+sId+'-'+key+'_end');
+  const block = document.getElementById('examblock-'+sId+'-'+key);
+  if(block) {
+    const filled = !!(startEl&&startEl.value && endEl&&endEl.value);
+    block.style.border = filled ? '1px solid #f59e0b' : '1px solid var(--border)';
+    block.style.background = filled ? '#fff3cd' : '';
+  }
+}
+
+// 시작일 입력 시 종료일 자동 설정
+// daysOffset=0: 동일 날짜, daysOffset=30: 30일 후
+function autoSetEndDate(sId, key, daysOffset) {
+  const startEl = document.getElementById('inp-'+sId+'-'+key+'_start');
+  const endEl   = document.getElementById('inp-'+sId+'-'+key+'_end');
+  if (!startEl || !endEl || !startEl.value) return;
+  if (endEl.value) return; // 이미 종료일 입력된 경우 건드리지 않음
+  const d = new Date(startEl.value + 'T00:00:00');
+  d.setDate(d.getDate() + daysOffset);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  endEl.value = `${y}-${m}-${day}`;
+}
+
+// 방학 입력칸 채워짐 표시 업데이트
+function updateVacFilled(sId, field) {
+  const el = document.getElementById('inp-'+sId+'-'+field);
+  if (!el) return;
+  const item = el.closest('.input-item');
+  if (!item) return;
+  if (el.value) item.classList.add('vac-filled');
+  else item.classList.remove('vac-filled');
+}
+
+// 겨울방학 방학식 입력 시 개학식·종업식 자동 동일 설정
+function onWinStartChange(sId) {
+  const startEl = document.getElementById('inp-'+sId+'-win_start');
+  const endEl   = document.getElementById('inp-'+sId+'-win_end');
+  const closeEl = document.getElementById('inp-'+sId+'-win_close');
+  if (!startEl || !startEl.value) return;
+  const val = startEl.value;
+  // 개학식: 비어있으면 방학식과 동일하게 설정
+  if (endEl && !endEl.value)   endEl.value   = val;
+  // 종업식: 비어있으면 방학식과 동일하게 설정
+  if (closeEl && !closeEl.value) closeEl.value = val;
+}
+
+// 중등용: 각 시험별 학년 체크박스 + 날짜 입력
+function buildDateInputsWithGrades(school, key, label, sch) {
+  const sId = escId(school);
+  registerSchoolId(sId, school); // sId → 학교명 역변환 등록
+  const gradeList = ['공통','1학년','2학년','3학년'];
+  // ── 저장된 데이터를 보고 초기 체크 상태 결정 (매번 렌더링 시 재계산)
+  {
+    const hasData = g => !!(sch.grades && sch.grades[g] && (sch.grades[g][key+'_start'] || sch.grades[g][key+'_end']));
+    const specificGrades = ['1학년','2학년','3학년'].filter(hasData);
+    let initSet;
+    if(specificGrades.length > 0) {
+      initSet = new Set(specificGrades);
+    } else if(hasData('공통')) {
+      initSet = new Set(['공통']);
+    } else {
+      initSet = new Set(['공통']);
+    }
+    setChkSet(school, key, initSet);
+  }
+  const sel = getChkSet(school, key);
+
+  // 선택된 학년들의 데이터 병합
+  const merged = {};
+  ['_start','_end'].forEach(sfx => {
+    const f = key+sfx;
+    const vals = [...sel].map(g => (sch.grades&&sch.grades[g]&&sch.grades[g][f])||'');
+    merged[f] = vals.every(v=>v===vals[0]) ? vals[0] : '';
+  });
+  const filled = !!(merged[key+'_start'] || merged[key+'_end']);
+
+  // 학교명을 JSON 이스케이프 처리해서 안전하게 전달
+  const schoolEscaped = school.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const chkHtml = gradeList.map(g => {
+    const checked = sel.has(g) ? 'checked' : '';
+    return `<label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;margin-right:6px;">
+      <input type="checkbox" ${checked} id="chkbox-${sId}-${key}-${escId(g)}" onchange="onExamGradeChk('${schoolEscaped}','${sId}','${key}','${g}',this.checked)" style="cursor:pointer;"> ${g}
+    </label>`;
+  }).join('');
+
+  const filledCls = filled ? 'exam-input-filled' : '';
+  return `<div id="examblock-${sId}-${key}" class="exam-block ${filledCls}">
+    <div class="exam-block-header">
+      <span class="exam-block-label">${label}</span>
+      <div class="exam-block-chks">${chkHtml}</div>
+    </div>
+    <div class="exam-block-dates">
+      <div class="exam-date-item">
+        <label class="exam-date-label">시작일</label>
+        <input type="date" class="exam-date-input" id="inp-${sId}-${key}_start" value="${merged[key+'_start']||''}" onchange="onExamDateChange('${sId}','${key}');autoSetEndDate('${sId}','${key}',0)">
+      </div>
+      <div class="exam-date-item">
+        <label class="exam-date-label">종료일</label>
+        <input type="date" class="exam-date-input" id="inp-${sId}-${key}_end" value="${merged[key+'_end']||''}" onchange="onExamDateChange('${sId}','${key}')">
+      </div>
+    </div>
+  </div>`;
+}
+
+// 체크박스 토글: 공통 선택 ↔ 학년 선택 상호작용 + 즉시 저장
+function onExamGradeChk(schoolName, sId, key, grade, checked) {
+  // schoolName: 실제 학교명 (escId 충돌 없음)
+  const sel = getChkSet(schoolName, key);
+  if(!schoolSchedules[schoolName]) schoolSchedules[schoolName] = {grades:{}};
+  if(!schoolSchedules[schoolName].grades) schoolSchedules[schoolName].grades = {};
+
+  const gradeList = ['공통','1학년','2학년','3학년'];
+
+  function syncChkUI() {
+    gradeList.forEach(g => {
+      const el = document.getElementById(`chkbox-${sId}-${key}-${escId(g)}`);
+      if(el) el.checked = sel.has(g);
+    });
+  }
+
+  if(checked) {
+    if(grade === '공통') {
+      sel.clear(); sel.add('공통');   // 공통 선택 → 학년 전체 해제
+    } else {
+      sel.add(grade);
+      sel.delete('공통');             // 학년 선택 → 공통 해제
+    }
+  } else {
+    sel.delete(grade);
+    if(sel.size === 0) sel.add('공통'); // 최소 1개 유지
+  }
+  syncChkUI();
+  onExamDateChange(schoolName, sId, key);
+}
+
+// 날짜 변경 시 즉시 선택 학년에 저장 (빈 값은 기존 데이터 유지)
+// schoolName: 실제 학교명 (직접 전달) 또는 sId로 역변환
+function onExamDateChange(schoolNameOrSId, sIdOrKey, keyOrUndef) {
+  let schoolName, sId, key;
+  if(keyOrUndef !== undefined) {
+    // 3인자: onExamGradeChk에서 호출
+    schoolName = schoolNameOrSId; sId = sIdOrKey; key = keyOrUndef;
+  } else {
+    // 2인자: onchange 이벤트에서 호출 (sId, key)
+    sId = schoolNameOrSId; key = sIdOrKey;
+    schoolName = getSchoolByEscId(sId);
+  }
+  const sel = getChkSet(schoolName, key);
+  if(!sel) return;
+  if(!schoolSchedules[schoolName]) schoolSchedules[schoolName] = {grades:{}};
+  if(!schoolSchedules[schoolName].grades) schoolSchedules[schoolName].grades = {};
+  const startEl = document.getElementById('inp-'+sId+'-'+key+'_start');
+  const endEl   = document.getElementById('inp-'+sId+'-'+key+'_end');
+  [...sel].forEach(g => {
+    if(!schoolSchedules[schoolName].grades[g]) schoolSchedules[schoolName].grades[g] = {};
+    // 값이 있을 때만 저장, 빈 값이면 기존 데이터 유지 (실수로 날짜 지워도 보존)
+    if(startEl && startEl.value) schoolSchedules[schoolName].grades[g][key+'_start'] = startEl.value;
+    if(endEl   && endEl.value)   schoolSchedules[schoolName].grades[g][key+'_end']   = endEl.value;
+  });
+  // 블록 배경색 갱신
+  const block = document.getElementById('examblock-'+sId+'-'+key);
+  if(block) {
+    const filled = (startEl&&startEl.value)||(endEl&&endEl.value);
+    block.classList.toggle('exam-input-filled', !!filled);
+    block.style.border = filled ? '1px solid #f59e0b' : '1px solid var(--border)';
+  }
+}
+
+function escId(s) { return s.replace(/[^a-zA-Z0-9가-힣]/g,'_'); }
+
+// sId → 실제 학교명 역변환 맵 (escId 충돌 방지)
+const _schoolNameMap = {};
+function registerSchoolId(sId, schoolName) { _schoolNameMap[sId] = schoolName; }
+function getSchoolByEscId(sId) { return _schoolNameMap[sId] || Object.keys(schoolSchedules).find(s=>escId(s)===sId) || sId; }
+
+// 체크박스 상태: 학교명+key 기반 (escId 충돌과 무관)
+const _chkState = {}; // { schoolName: { key: Set } }
+function getChkSet(schoolName, key) {
+  if (!_chkState[schoolName]) _chkState[schoolName] = {};
+  if (!_chkState[schoolName][key]) _chkState[schoolName][key] = new Set(['공통']);
+  return _chkState[schoolName][key];
+}
+function setChkSet(schoolName, key, newSet) {
+  if (!_chkState[schoolName]) _chkState[schoolName] = {};
+  _chkState[schoolName][key] = newSet;
+}
+
+function toggleSchoolBlock(id) {
+  const el = document.getElementById(id);
+  const schoolEsc = id.replace('block-','');
+  if (el.style.display==='none') { el.style.display=''; document.getElementById('arrow-'+schoolEsc).textContent='▲'; }
+  else { el.style.display='none'; document.getElementById('arrow-'+schoolEsc).textContent='▼'; }
+}
+
+// 개별 학교 저장
+async function saveOneSchool(school) {
+  const sId = escId(school);
+  const btn = document.getElementById('savebtn-' + sId);
+  const vacFields = ['sum_start','sum_end','win_start','win_end','win_close'];
+  const allExamFields = ['mid1_start','mid1_end','fin1_start','fin1_end',
+                         'mid2_start','mid2_end','fin2_start','fin2_end','fin2b_start','fin2b_end'];
+  const schoolType = getSchoolType(school);
+
+  // 버튼 상태 변경
+  if (btn) { btn.textContent = '저장 중...'; btn.className = 'sch-save-btn saving'; btn.disabled = true; }
+
+  // 메모리에 저장
+  if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+  if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+  const grades = getSchoolGrades(school);
+
+  // 방학 필드
+  const vacData = {};
+  vacFields.forEach(f => {
+    const el = document.getElementById(`inp-${sId}-${f}`);
+    if (el && el.value) vacData[f] = el.value;
+  });
+  grades.forEach(grade => {
+    if (!schoolSchedules[school].grades[grade]) schoolSchedules[school].grades[grade] = {};
+    vacFields.forEach(f => { if (vacData[f]) schoolSchedules[school].grades[grade][f] = vacData[f]; });
+  });
+
+  // 초등/고등 내신 필드
+  if (schoolType !== '중등') {
+    if (!schoolSchedules[school].grades['공통']) schoolSchedules[school].grades['공통'] = {};
+    allExamFields.forEach(f => {
+      const el = document.getElementById(`inp-${sId}-${f}`);
+      if (el && el.value) schoolSchedules[school].grades['공통'][f] = el.value;
+    });
+  }
+
+  // 중등 내신: chkState에서 읽어서 저장
+  if (schoolType === '중등') {
+    ['mid1','fin1','mid2','fin2','fin2b'].forEach(key => {
+      const sel = getChkSet(school, key);
+      if (!sel || sel.size === 0) return;
+      const startEl = document.getElementById(`inp-${sId}-${key}_start`);
+      const endEl   = document.getElementById(`inp-${sId}-${key}_end`);
+      [...sel].forEach(g => {
+        if (!schoolSchedules[school].grades[g]) schoolSchedules[school].grades[g] = {};
+        if (startEl && startEl.value) schoolSchedules[school].grades[g][key+'_start'] = startEl.value;
+        if (endEl   && endEl.value)   schoolSchedules[school].grades[g][key+'_end']   = endEl.value;
+      });
+    });
+  }
+
+  save();
+
+  // Sheets 저장
+  if (apiConfigured()) {
+    const chunk = { [school]: schoolSchedules[school] };
+    const r = await apiPost('saveAllSchedules', chunk);
+    if (btn) {
+      if (r && r.ok) {
+        btn.textContent = '✅ 저장됨'; btn.className = 'sch-save-btn done';
+        setTimeout(() => { btn.textContent = '💾 저장'; btn.className = 'sch-save-btn'; btn.disabled = false; }, 2000);
+      } else {
+        btn.textContent = '⚠️ 실패'; btn.className = 'sch-save-btn saving';
+        setTimeout(() => { btn.textContent = '💾 저장'; btn.className = 'sch-save-btn'; btn.disabled = false; }, 2000);
+      }
+    }
+  } else {
+    if (btn) {
+      btn.textContent = '✅ 저장됨'; btn.className = 'sch-save-btn done';
+      setTimeout(() => { btn.textContent = '💾 저장'; btn.className = 'sch-save-btn'; btn.disabled = false; }, 1500);
+    }
+  }
+}
+
+// 전체 일정 초기화
+function confirmResetAllSchedules() {
+  const msg = '⚠️ 모든 학교의 내신·방학 일정이 삭제됩니다.\n\n다음 연도 일정 입력을 위해 초기화하려면 확인을 누르세요.\n(학생명단은 유지됩니다)';
+  if (!confirm(msg)) return;
+  // schoolSchedules의 grades 데이터만 초기화 (학교 목록은 유지)
+  Object.keys(schoolSchedules).forEach(school => {
+    schoolSchedules[school].grades = {};
+  });
+  // _chkState 초기화
+  Object.keys(_chkState).forEach(k => delete _chkState[k]);
+  save();
+  if (apiConfigured()) {
+    showSyncStatus('☁️ 초기화 내용 Sheets에 반영 중...', 'loading');
+    saveScheduleToSheets(schoolSchedules).then(ok => {
+      if (ok) showSyncStatus('✅ 초기화 완료! Sheets에도 반영되었습니다.', 'success');
+      else    showSyncStatus('✅ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
+    });
+  } else {
+    showSyncStatus('✅ 일정이 초기화되었습니다.', 'success');
+  }
+  renderScheduleInput();
+}
+
+// 특정 학교 일정만 초기화
+function confirmResetOneSchool(school) {
+  if (!confirm(`⚠️ [${school}]의 모든 일정을 초기화하시겠습니까?`)) return;
+  if (schoolSchedules[school]) schoolSchedules[school].grades = {};
+  // 해당 학교 _chkState 초기화
+  delete _chkState[school];
+  save();
+  if (apiConfigured()) {
+    const chunk = { [school]: schoolSchedules[school] };
+    saveScheduleToSheets(chunk).then(() => {});
+  }
+  renderScheduleInput();
+}
+
+async function saveAllSchedules() {
+  const schools = Object.keys(schoolSchedules);
+  const vacFields = ['sum_start','sum_end','win_start','win_end','win_close'];
+  const allExamFields = ['mid1_start','mid1_end','fin1_start','fin1_end',
+                         'mid2_start','mid2_end','fin2_start','fin2_end','fin2b_start','fin2b_end'];
+
+  schools.forEach(school => {
+    const sId = escId(school);
+    const schoolType = getSchoolType(school);
+    if(!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+    const grades = getSchoolGrades(school);
+
+    // ① 방학 필드: 폼에서 읽어 모든 학년에 저장
+    const vacData = {};
+    vacFields.forEach(f => {
+      const el = document.getElementById(`inp-${sId}-${f}`);
+      if(el && el.value) vacData[f] = el.value;
+    });
+    grades.forEach(grade => {
+      if(!schoolSchedules[school].grades[grade]) schoolSchedules[school].grades[grade] = {};
+      vacFields.forEach(f => {
+        if(vacData[f]) schoolSchedules[school].grades[grade][f] = vacData[f];
+      });
+    });
+
+    // ② 고등/초등: 폼에서 직접 읽어 공통에 저장
+    if(schoolType !== '중등') {
+      if(!schoolSchedules[school].grades['공통']) schoolSchedules[school].grades['공통'] = {};
+      allExamFields.forEach(f => {
+        const el = document.getElementById(`inp-${sId}-${f}`);
+        if(el && el.value) schoolSchedules[school].grades['공통'][f] = el.value;
+      });
+    }
+    // ③ 중등: 폼이 열린 학교는 체크박스 선택 학년에 폼 값 재동기화
+    if(schoolType === '중등') {
+      ['mid1','fin1','mid2','fin2','fin2b'].forEach(key => {
+        const sel = getChkSet(school, key);
+        if(!sel || sel.size === 0) return;
+        const startEl = document.getElementById(`inp-${sId}-${key}_start`);
+        const endEl   = document.getElementById(`inp-${sId}-${key}_end`);
+        if(!startEl && !endEl) return;
+        [...sel].forEach(g => {
+          if(!schoolSchedules[school].grades[g]) schoolSchedules[school].grades[g] = {};
+          if(startEl && startEl.value) schoolSchedules[school].grades[g][key+'_start'] = startEl.value;
+          if(endEl   && endEl.value)   schoolSchedules[school].grades[g][key+'_end']   = endEl.value;
+        });
+      });
+    }
+  });
+
+  save();
+
+  // Sheets 동기화 — 학교별로 순차 전송
+  if (apiConfigured()) {
+    const ok = await saveScheduleToSheets(schoolSchedules);
+    if (ok) showSyncStatus('✅ 일정이 Google Sheets에 저장되었습니다!', 'success');
+    else    showSyncStatus('⚠️ Sheets 저장 실패 — 로컬에는 저장됨', 'error');
+  } else {
+    showSyncStatus('✅ 로컬에 저장되었습니다!', 'success');
+  }
+}
+
+// ===== STUDENT VIEW =====
+// Combo box data stores
+let comboData = { class: [], name: [], school: [] };
+
+function initStudentFilters() {
+  comboData.class  = [...new Set(students.map(s=>s.class))].filter(Boolean).sort();
+  comboData.name   = [...new Set(students.map(s=>s.name))].filter(Boolean).sort();
+  comboData.school = [...new Set(students.map(s=>s.school))].filter(Boolean).sort();
+  buildComboList('f-class-list',  comboData.class,  'f-class-input');
+  buildComboList('f-name-list',   comboData.name,   'f-name-input');
+  buildComboList('f-school-list', comboData.school, 'f-school-input');
+  onLevelChange(); // populate grade select
+}
+
+function buildComboList(listId, vals, inputId) {
+  const el = document.getElementById(listId);
+  if(!el) return;
+  el.innerHTML = ['', ...vals].map(v =>
+    `<div onmousedown="selectCombo('${inputId}','${listId}','${v.replace(/'/g,"\'")}')">` +
+    (v || '<span style="color:var(--text2)">전체</span>') + '</div>'
+  ).join('');
+}
+
+function filterCombo(listId, inputId) {
+  const q = document.getElementById(inputId).value.toLowerCase();
+  const key = listId.includes('class') ? 'class' : listId.includes('name') ? 'name' : 'school';
+  const level = document.getElementById('f-schoollevel').value;
+  let src = comboData[key];
+  // school: filter by level
+  if(key==='school' && level) {
+    src = src.filter(s => {
+      const st = students.find(st=>st.school===s);
+      return st && getSchoolLevel(st.grade)===level;
+    });
+  }
+  const filtered = q ? src.filter(v=>v.toLowerCase().includes(q)) : src;
+  const el = document.getElementById(listId);
+  el.innerHTML = ['', ...filtered].map(v =>
+    `<div onmousedown="selectCombo('${inputId}','${listId}','${v.replace(/'/g,"\'")}')">` +
+    (v ? v.replace(new RegExp(q,'gi'), m=>`<strong>${m}</strong>`) : '<span style="color:var(--text2)">전체</span>') + '</div>'
+  ).join('');
+  el.style.display = '';
+}
+
+function selectCombo(inputId, listId, val) {
+  document.getElementById(inputId).value = val;
+  document.getElementById(listId).style.display = 'none';
+}
+function showCombo(listId) { document.getElementById(listId).style.display=''; }
+function hideCombo(listId) { setTimeout(()=>{ const el=document.getElementById(listId); if(el) el.style.display='none'; }, 200); }
+
+function onLevelChange() {
+  const level = document.getElementById('f-schoollevel').value;
+  const gradeEl = document.getElementById('f-grade');
+  const gradeOrder = {'초1':1,'초2':2,'초3':3,'초4':4,'초5':5,'초6':6,'중1':7,'중2':8,'중3':9,'고1':10,'고2':11,'고3':12};
+  const allGrades = [...new Set(students.map(s=>s.grade))].filter(Boolean).sort((a,b)=>(gradeOrder[a]||99)-(gradeOrder[b]||99));
+  const grades = level ? allGrades.filter(g=>getSchoolLevel(g)===level) : allGrades;
+  gradeEl.innerHTML = '<option value="">전체</option>' + grades.map(g=>`<option value="${g}">${g}</option>`).join('');
+  // also update school combo
+  const level2 = level;
+  let schoolSrc = comboData.school;
+  if(level2) schoolSrc = schoolSrc.filter(s=>{ const st=students.find(st=>st.school===s); return st&&getSchoolLevel(st.grade)===level2; });
+  const el = document.getElementById('f-school-list');
+  if(el) el.innerHTML = ['', ...schoolSrc].map(v =>
+    `<div onmousedown="selectCombo('f-school-input','f-school-list','${v.replace(/'/g,"\'")}')">` +
+    (v || '<span style="color:var(--text2)">전체</span>') + '</div>'
+  ).join('');
+  // clear school input if it doesn't belong to new level
+  const curSchool = document.getElementById('f-school-input').value;
+  if(curSchool && !schoolSrc.includes(curSchool)) document.getElementById('f-school-input').value='';
+}
+
+function renderStudentView() {
+  const fClass  = document.getElementById('f-class-input').value.trim();
+  const fName   = document.getElementById('f-name-input').value.trim();
+  const fSchool = document.getElementById('f-school-input').value.trim();
+  const fGrade  = document.getElementById('f-grade').value;
+  const fLevel  = document.getElementById('f-schoollevel').value;
+  const fType   = document.getElementById('f-type').value;
+  const fStart  = document.getElementById('f-start').value;
+  const fEnd    = document.getElementById('f-end').value;
+  const sortBy  = document.querySelector('input[name="f-sort"]:checked')?.value || 'class';
+
+  let filtered = students.filter(s => {
+    if(fClass  && !s.class.includes(fClass))   return false;
+    if(fName   && !s.name.includes(fName))     return false;
+    if(fSchool && !s.school.includes(fSchool)) return false;
+    if(fGrade  && s.grade!==fGrade)            return false;
+    if(fLevel  && getSchoolLevel(s.grade)!==fLevel) return false;
+    return true;
+  });
+
+  // Sort
+  const gradeOrder={'초1':1,'초2':2,'초3':3,'초4':4,'초5':5,'초6':6,'중1':7,'중2':8,'중3':9,'고1':10,'고2':11,'고3':12};
+  filtered.sort((a,b) => {
+    if(sortBy==='grade') return (gradeOrder[a.grade]||99)-(gradeOrder[b.grade]||99) || a.school.localeCompare(b.school,'ko') || a.name.localeCompare(b.name,'ko');
+    if(sortBy==='school') return a.school.localeCompare(b.school,'ko') || (gradeOrder[a.grade]||99)-(gradeOrder[b.grade]||99) || a.name.localeCompare(b.name,'ko');
+    if(sortBy==='name') return a.name.localeCompare(b.name,'ko');
+    return a.class.localeCompare(b.class,'ko') || a.name.localeCompare(b.name,'ko'); // class
+  });
+
+  const out=document.getElementById('studentViewOutput');
+  if(!filtered.length){out.innerHTML='<div class="info-banner">조건에 맞는 학생이 없습니다.</div>';return;}
+  // 전체 선택 시 안내
+  if(!fType) {
+    // all types shown - continue
+  }
+
+  const ALL_TYPES = ['1학기중간','1학기기말','2학기중간','2학기기말','여름방학','겨울방학'];
+  const activeTypes = fType ? [fType] : ALL_TYPES;
+
+  // Determine date range
+  let rangeStart, rangeEnd;
+  if(fStart && fEnd) {
+    rangeStart = parseDate(fStart); rangeEnd = parseDate(fEnd);
+  } else if(fStart) {
+    rangeStart = parseDate(fStart);
+    rangeEnd = new Date(rangeStart); rangeEnd.setDate(rangeEnd.getDate()+55); // 8주
+  } else if(fEnd) {
+    rangeEnd = parseDate(fEnd);
+    rangeStart = new Date(rangeEnd); rangeStart.setDate(rangeStart.getDate()-37);
+  } else {
+    // 기본: 오늘-7일 ~ 오늘+30일
+    const today = new Date(); today.setHours(0,0,0,0);
+    rangeStart = new Date(today); rangeStart.setDate(today.getDate()-7);
+    rangeEnd   = new Date(today); rangeEnd.setDate(today.getDate()+30);
+  }
+
+  // Build date columns
+  const dates=[];
+  let cur=new Date(rangeStart);
+  while(cur<=rangeEnd){dates.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+
+  // Header rows — 4 info cols sticky left + sticky top
+  let headerDate=`<tr>
+    <th class="col-info hdr-fixed-0" style="min-width:160px;padding:6px 10px;font-weight:700;">반</th>
+    <th class="col-info hdr-fixed-1" style="min-width:94px;padding:6px 10px;font-weight:700;">이름</th>
+    <th class="col-info hdr-fixed-2" style="min-width:94px;padding:6px 10px;font-weight:700;">학교</th>
+    <th class="col-info hdr-fixed-3" style="min-width:94px;padding:6px 10px;font-weight:700;">학년</th>`;
+  let headerDay=`<tr>
+    <th class="hdr-day-fixed-0" style="min-width:160px;padding:4px 10px;"></th>
+    <th class="hdr-day-fixed-1" style="min-width:94px;"></th>
+    <th class="hdr-day-fixed-2" style="min-width:94px;"></th>
+    <th class="hdr-day-fixed-3" style="min-width:94px;"></th>`;
+  dates.forEach(d=>{
+    const day=d.getDay();
+    const dayStr=DAYS_KO[day];
+    const isSat=day===6, isSun=day===0;
+    const dateBg=isSat?'#1a56aa':isSun?'#b91c1c':'#2c5282';
+    const dayBg=isSat?'#dbeafe':isSun?'#fee2e2':'#f3f4f6';
+    const dayColor=isSat?'#1a56aa':isSun?'#b91c1c':'#374151';
+    headerDate+=`<th class="header-date" style="background:${dateBg};min-width:30px;">${d.getMonth()+1}/${d.getDate()}</th>`;
+    headerDay+=`<th class="header-day" style="background:${dayBg};color:${dayColor};min-width:30px;">${dayStr}</th>`;
+  });
+  headerDate+='</tr>'; headerDay+='</tr>';
+
+  // Student rows (multi-type support)
+  const rows = filtered.map(s => {
+    // 각 날짜별로 가장 우선순위 높은 일정 표시
+    const scheds = activeTypes.map(t => getStudentSchedule(s, t)).filter(Boolean);
+    let rowHtml = `<td class="col-info col-class col-fixed col-fixed-0">${s.class}</td><td class="col-info col-fixed col-fixed-1">${s.name}</td><td class="col-info col-fixed col-fixed-2">${s.school}</td><td class="col-info col-fixed col-fixed-3">${s.grade}</td>`;
+    dates.forEach(d => {
+      // 여러 일정 중 매칭되는 것 우선순위: 마 > 첫 > 내신 > 방학
+      let cell = null;
+      for(const sch of scheds) {
+        const dStr = toDateStr(d);
+        if(sch.type==='exam') {
+          if(dStr>=toDateStr(sch.start)&&dStr<=toDateStr(sch.end)) {
+            const wk=d.getDay()===6||d.getDay()===0;
+            cell=`<td class="cell-exam" style="${wk?'background:#f5c4a0;':''}height:28px;"></td>`; break;
+          }
+        } else if(sch.type==='vacation') {
+          if(dStr>=toDateStr(sch.start)&&dStr<=toDateStr(sch.end)) { cell=`<td class="cell-vacation" style="height:28px;"></td>`; break; }
+        } else if(sch.type==='vacation_segs') {
+          const inAny = sch.segs.some(seg=>dStr>=toDateStr(seg.start)&&dStr<=toDateStr(seg.end));
+          if(inAny) { cell=`<td class="cell-vacation" style="height:28px;"></td>`; break; }
+        } else if(sch.type==='vacation2') {
+          const inV1=dStr>=toDateStr(sch.start)&&dStr<=toDateStr(sch.end);
+          const inV2=dStr>=toDateStr(sch.start2)&&dStr<=toDateStr(sch.end2);
+          if(inV1||inV2) { cell=`<td class="cell-vacation" style="height:28px;"></td>`; break; }
+        }
+      }
+      rowHtml += cell || `<td class="empty-cell" style="height:28px;"></td>`;
+    });
+    return `<tr>${rowHtml}</tr>`;
+  }).join('');
+
+  out.innerHTML = `<div class="schedule-wrap"><table class="schedule-table">${headerDate}${headerDay}${rows}</table></div>`;
+}
+
+function parseDate(s) {
+  // Parse YYYY-MM-DD as local midnight to avoid UTC offset issues
+  if(!s) return null;
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function getStudentSchedule(student, type) {
+  const school = schoolSchedules[student.school];
+  if (!school) return null;
+  const gradeNum = student.grade.replace(/[^0-9]/g,'');
+  const gradeKey = student.grade.startsWith('중') ? (gradeNum+'학년') : '공통';
+
+  // 내신용 데이터: 해당 학년 우선, 없으면 공통
+  const examData = (school.grades && (school.grades[gradeKey] || school.grades['공통'])) || {};
+
+  // 방학용 데이터: 공통 우선 → 해당학년 → 아무학년 순으로 탐색
+  function getField(field) {
+    if (!school.grades) return '';
+    // 내신 필드: 해당 학년 우선, 없으면 공통
+    if (!field.startsWith('win_') && !field.startsWith('sum_')) {
+      const v1 = school.grades[gradeKey] && school.grades[gradeKey][field];
+      if (v1) return v1;
+      const v2 = school.grades['공통'] && school.grades['공통'][field];
+      if (v2) return v2;
+      return '';
+    }
+    // 방학 필드: 공통 우선, 없으면 어느 학년이든
+    const vc = school.grades['공통'] && school.grades['공통'][field];
+    if (vc) return vc;
+    const vg = school.grades[gradeKey] && school.grades[gradeKey][field];
+    if (vg) return vg;
+    for (const g of Object.values(school.grades)) {
+      if (g && g[field]) return g[field];
+    }
+    return '';
+  }
+
+  // data 객체: getField() 로 일관되게 접근
+  const data = {
+    get win_start() { return getField('win_start'); },
+    get win_end()   { return getField('win_end');   },
+    get win_close() { return getField('win_close'); },
+    get sum_start() { return getField('sum_start'); },
+    get sum_end()   { return getField('sum_end');   },
+    get mid1_start(){ return getField('mid1_start');},
+    get mid1_end()  { return getField('mid1_end');  },
+    get fin1_start(){ return getField('fin1_start');},
+    get fin1_end()  { return getField('fin1_end');  },
+    get mid2_start(){ return getField('mid2_start');},
+    get mid2_end()  { return getField('mid2_end');  },
+    get fin2_start(){ return getField('fin2_start');},
+    get fin2_end()  { return getField('fin2_end');  },
+    get fin2b_start(){return getField('fin2b_start');},
+    get fin2b_end() { return getField('fin2b_end'); },
+  };
+
+  if (type==='여름방학') {
+    if(!data.sum_start||!data.sum_end) return null;
+    const start=parseDate(data.sum_start); start.setDate(start.getDate()+1);
+    const end=parseDate(data.sum_end); end.setDate(end.getDate()-1);
+    return {type:'vacation', start, end, dispStart:start, dispEnd:end};
+  }
+  if (type==='겨울방학') {
+    const A = data.win_start;   // 방학식
+    const B = data.win_end;     // 개학식
+    const C = data.win_close;   // 종업식
+    if (!A && !C) return null;
+
+    const baseStart = A || C; // 방학식 없으면 종업식 기준
+    const startD = parseDate(baseStart);
+    startD.setDate(startD.getDate() + 1); // 방학식 다음날
+
+    // 2월28일 계산 (방학 시작 연도 기준 다음해)
+    function feb28(fromDateStr) {
+      const yr = parseDate(fromDateStr).getFullYear();
+      // 방학이 1월 이후면 같은 해 2월, 그렇지 않으면 다음해 2월
+      const baseYr = parseDate(fromDateStr).getMonth() >= 6 ? yr + 1 : yr;
+      // 윤년 체크
+      const isLeap = (baseYr % 4 === 0 && baseYr % 100 !== 0) || baseYr % 400 === 0;
+      return new Date(baseYr, 1, isLeap ? 29 : 28);
+    }
+
+    // Case 1: 방학식(A) ≠ 개학식(B) → 구간1: A다음~B전날 + 종업식 있으면 C다음~2월28일
+    if (A && B && A !== B) {
+      const endD = parseDate(B); endD.setDate(endD.getDate() - 1);
+      const segs = [{start: startD, end: endD}];
+      if (C) {
+        const s2 = parseDate(C); s2.setDate(s2.getDate() + 1);
+        segs.push({start: s2, end: feb28(C)});
+      }
+      const dispEnd = C ? feb28(C) : endD;
+      return {type:'vacation_segs', segs, dispStart: startD, dispEnd};
+    }
+
+    // Case 2+3: A=B, 또는 B없음 → 방학식다음날 ~ 2월28일
+    const endD2 = feb28(baseStart);
+    return {type:'vacation', start: startD, end: endD2, dispStart: startD, dispEnd: endD2};
+  }
+  // exam
+  // 중3은 fin2b 사용 (있으면), 나머지는 fin2
+  const keyMap = {'1학기중간':'mid1','1학기기말':'fin1','2학기중간':'mid2','2학기기말':'fin2'};
+  if(type==='2학기기말' && student.grade==='중3' && data['fin2b_start']) {
+    const examStart=parseDate(data['fin2b_start']);
+    const examEnd=parseDate(data['fin2b_end']);
+    const maDay=new Date(examStart); maDay.setDate(maDay.getDate()-1);
+    const firstDay=new Date(examEnd); firstDay.setDate(firstDay.getDate()+1);
+    return {type:'exam', start:examStart, end:examEnd, maDay, firstDay, dispStart:maDay, dispEnd:firstDay};
+  }
+  const key = keyMap[type];
+  if(!key) return null;
+  if(!data[key+'_start']||!data[key+'_end']) return null;
+  const examStart=parseDate(data[key+'_start']);
+  const examEnd=parseDate(data[key+'_end']);
+  // 마: day before exam start
+  const maDay=new Date(examStart); maDay.setDate(maDay.getDate()-1);
+  // 첫: day after exam end
+  const firstDay=new Date(examEnd); firstDay.setDate(firstDay.getDate()+1);
+  return {type:'exam', start:examStart, end:examEnd, maDay, firstDay, dispStart:maDay, dispEnd:firstDay};
+}
+
+function buildCell(date, student, sch, type) {
+  const day = date.getDay();
+  const dStr = toDateStr(date);
+  if(!sch) return `<td class="empty-cell" style="height:28px;"></td>`;
+
+  if(sch.type==='exam') {
+    const ds=sch.start, de=sch.end;
+    const inExam = dStr >= toDateStr(ds) && dStr <= toDateStr(de);
+    if(inExam) {
+      const wkend = day===6||day===0;
+      return `<td class="cell-exam" style="${wkend?'background:#f5c4a0;':''}height:28px;"></td>`;
+    }
+    return `<td class="empty-cell" style="height:28px;"></td>`;
+  }
+  if(sch.type==='vacation') {
+    const inVac = dStr >= toDateStr(sch.start) && dStr <= toDateStr(sch.end);
+    return inVac ? `<td class="cell-vacation" style="height:28px;"></td>` : `<td class="empty-cell" style="height:28px;"></td>`;
+  }
+  if(sch.type==='vacation_segs') {
+    const inAny = sch.segs.some(seg=>dStr>=toDateStr(seg.start)&&dStr<=toDateStr(seg.end));
+    return inAny ? `<td class="cell-vacation" style="height:28px;"></td>` : `<td class="empty-cell" style="height:28px;"></td>`;
+  }
+  if(sch.type==='vacation2') {
+    const inV1 = dStr >= toDateStr(sch.start)  && dStr <= toDateStr(sch.end);
+    const inV2 = dStr >= toDateStr(sch.start2) && dStr <= toDateStr(sch.end2);
+    return (inV1||inV2) ? `<td class="cell-vacation" style="height:28px;"></td>` : `<td class="empty-cell" style="height:28px;"></td>`;
+  }
+  return `<td class="empty-cell" style="height:28px;"></td>`;
+}
+
+function toDateStr(d) {
+  if(!d) return '';
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+// ===== SCHOOL VIEW =====
+function renderSchoolView() {
+  const svType=document.getElementById('sv-type').value;
+  const svLevel=document.getElementById('sv-level').value;
+  const out=document.getElementById('schoolViewOutput');
+
+  // Deduplicate: per school, count unique students (name+grade) — ignore duplicate classes
+  const schoolData={};
+  const seen={};
+  students.forEach(s=>{
+    if(svLevel && getSchoolLevel(s.grade)!==svLevel) return;
+    const key=s.name+'|'+s.school+'|'+s.grade;
+    if(seen[key]) return;
+    seen[key]=true;
+    if(!schoolData[s.school]) schoolData[s.school]={};
+    schoolData[s.school][s.grade]=(schoolData[s.school][s.grade]||0)+1;
+  });
+
+  const gradeOrder={'초1':1,'초2':2,'초3':3,'초4':4,'초5':5,'초6':6,'중1':7,'중2':8,'중3':9,'고1':10,'고2':11,'고3':12};
+  const allGrades=[...new Set(students.map(s=>s.grade))].sort((a,b)=>(gradeOrder[a]||99)-(gradeOrder[b]||99));
+  const filtGrades = svLevel ? allGrades.filter(g=>getSchoolLevel(g)===svLevel) : allGrades;
+
+  const keyMap = {'1학기중간':'mid1','1학기기말':'fin1','2학기중간':'mid2','2학기기말':'fin2'};
+
+  const schools=Object.keys(schoolData).sort();
+  if(!schools.length){out.innerHTML='<div class="info-banner">학생 데이터가 없습니다.</div>';return;}
+
+  const showSched = svType!=='인원';
+
+  // 2학기기말은 중1·2 / 중3 두 행 가능
+  const isFin2 = svType==='2학기기말';
+  let thead=`<tr><th style="text-align:left;min-width:120px;">학교명</th>${filtGrades.map(g=>`<th>${g}</th>`).join('')}<th>합계</th>`;
+  if(showSched) {
+    if(svType==='여름방학'||svType==='겨울방학') thead+=`<th>방학식</th><th>개학식</th>`;
+    else if(isFin2) thead+=`<th>구분</th><th>시작일</th><th>종료일</th>`;
+    else thead+=`<th>시작일</th><th>종료일</th>`;
+  }
+  thead+='</tr>';
+
+  // 학년 배지 생성 함수
+  function getGradeBadge(gradesArr) {
+    if(!gradesArr||gradesArr.length===0) return '';
+    // 공통만 있으면
+    if(gradesArr.length===1&&gradesArr[0]==='공통') return '<span style="background:#2c5282;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:4px;">공통</span>';
+    // 학년 목록 (공통 제외)
+    const specific = gradesArr.filter(g=>g!=='공통');
+    // 학년명 → 중1,중2 형태로
+    const labels = specific.map(g=>g.replace('학년',''));
+    return `<span style="background:#1a56aa;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin-right:4px;">중${labels.join(',중')}</span>`;
+  }
+
+  // 특정 시험키에 대해 데이터가 있는 학년 목록 반환
+  function getGradesWithExamData(school, key) {
+    const sch = schoolSchedules[school];
+    if(!sch||!sch.grades) return [];
+    return Object.entries(sch.grades)
+      .filter(([g,d])=>d&&(d[key+'_start']||d[key+'_end']))
+      .map(([g])=>g);
+  }
+
+  // Per-school rows
+  const tbodyRows=schools.map(school=>{
+    const gradeMap=schoolData[school]||{};
+    const total=filtGrades.reduce((sum,g)=>sum+(gradeMap[g]||0),0);
+    let cells=filtGrades.map(g=>`<td>${gradeMap[g]?`<span class="count-badge">${gradeMap[g]}</span>`:''}</td>`).join('');
+    cells+=`<td><strong>${total}</strong></td>`;
+
+    if(showSched){
+      const sch=schoolSchedules[school];
+      if(svType==='여름방학'){
+        const gd=sch&&sch.grades?(sch.grades['공통']||Object.values(sch.grades)[0]||{}):{}; 
+        const badge = gd.sum_start ? getGradeBadge(['공통']) : '';
+        cells+=`<td>${gd.sum_start?`${badge}<span class="date-pill">${gd.sum_start}</span>`:'-'}</td><td>${gd.sum_end?`<span class="date-pill">${gd.sum_end}</span>`:'-'}</td>`;
+      } else if(svType==='겨울방학'){
+        const gd=sch&&sch.grades?(sch.grades['공통']||Object.values(sch.grades)[0]||{}):{};
+        // 종업식만 있으면 방학식·개학식도 종업식과 동일로 표시
+        const dispStart = gd.win_start || gd.win_close || '';
+        const dispEnd   = gd.win_end   || gd.win_close || '';
+        const badge = dispStart ? getGradeBadge(['공통']) : '';
+        const noteClose = (!gd.win_start && gd.win_close) ? ' <span style="font-size:10px;color:#888;">(종업식)</span>' : '';
+        cells+=`<td>${dispStart?`${badge}<span class="date-pill">${dispStart}</span>${noteClose}`:'-'}</td><td>${dispEnd?`<span class="date-pill">${dispEnd}</span>`:'-'}</td>`;
+      } else if(isFin2) {
+        // 2학기기말: 구분 | 시작일 | 종료일 — 중1·2와 중3을 각각 별도 행으로
+        const fin2Grades  = getGradesWithExamData(school, 'fin2');
+        const fin2bGrades = getGradesWithExamData(school, 'fin2b');
+
+        // 구분 셀: 배지들
+        let divCell = '', startCell = '', endCell = '';
+        const lines = [];
+
+        if(fin2Grades.length>0) {
+          const badge = getGradeBadge(fin2Grades);
+          const dg = fin2Grades.includes('공통')?'공통':fin2Grades[0];
+          const gd = sch&&sch.grades&&sch.grades[dg]?sch.grades[dg]:{};
+          lines.push({
+            div:   badge || '<span style="background:#2c5282;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">공통</span>',
+            start: gd.fin2_start ? `<span class="date-pill">${gd.fin2_start}</span>` : '-',
+            end:   gd.fin2_end   ? `<span class="date-pill">${gd.fin2_end}</span>`   : '-',
+          });
+        }
+        if(fin2bGrades.length>0) {
+          const dg2 = fin2bGrades[0];
+          const gd2 = sch&&sch.grades&&sch.grades[dg2]?sch.grades[dg2]:{};
+          lines.push({
+            div:   '<span style="background:#7c3aed;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">중3</span>',
+            start: gd2.fin2b_start ? `<span class="date-pill">${gd2.fin2b_start}</span>` : '-',
+            end:   gd2.fin2b_end   ? `<span class="date-pill">${gd2.fin2b_end}</span>`   : '-',
+          });
+        }
+        if(lines.length===0) {
+          cells += `<td>-</td><td>-</td><td>-</td>`;
+        } else {
+          cells += `<td style="text-align:center;">${lines.map(l=>l.div).join('<br>')}</td>`;
+          cells += `<td>${lines.map(l=>l.start).join('<br>')}</td>`;
+          cells += `<td>${lines.map(l=>l.end).join('<br>')}</td>`;
+        }
+      } else {
+        const key=keyMap[svType];
+        const gradesWithData = getGradesWithExamData(school, key);
+        const badge = gradesWithData.length>0 ? getGradeBadge(gradesWithData) : '';
+        const dispGrade = gradesWithData.includes('공통') ? '공통' : gradesWithData[0];
+        const gd = dispGrade&&sch&&sch.grades&&sch.grades[dispGrade] ? sch.grades[dispGrade] : {};
+        cells+=`<td>${gd[key+'_start']?`${badge}<span class="date-pill">${gd[key+'_start']}</span>`:'-'}</td><td>${gd[key+'_end']?`<span class="date-pill">${gd[key+'_end']}</span>`:'-'}</td>`;
+      }
+    }
+    return `<tr><td class="school-name">${school}</td>${cells}</tr>`;
+  }).join('');
+
+  // Totals footer row
+  const gradeTotals={};
+  filtGrades.forEach(g=>{
+    gradeTotals[g]=schools.reduce((sum,school)=>sum+(schoolData[school]&&schoolData[school][g]||0),0);
+  });
+  const grandTotal=filtGrades.reduce((sum,g)=>sum+(gradeTotals[g]||0),0);
+  let footerCells=filtGrades.map(g=>`<td style="font-weight:700;font-size:14px;color:var(--accent);">${gradeTotals[g]||''}</td>`).join('');
+  footerCells+=`<td style="font-weight:700;font-size:15px;color:var(--accent);">${grandTotal}</td>`;
+  if(showSched) footerCells+=isFin2?`<td></td><td></td><td></td>`:`<td></td><td></td>`;
+  const tfoot=`<tfoot><tr style="background:var(--accent2);border-top:2px solid var(--accent);"><td style="text-align:left;font-weight:700;padding:8px 14px;color:var(--accent);">전체 합계</td>${footerCells}</tr></tfoot>`;
+
+  out.innerHTML=`<div class="school-table-wrap"><table class="school-table"><thead>${thead}</thead><tbody>${tbodyRows}</tbody>${tfoot}</table></div>`;
+}
+
+// ===== ADMIN AUTH =====
+const ADMIN_PW = 'cms1234';
+let adminUnlocked = false;  // 세션 동안 한 번 인증하면 유지
+let adminTarget = null;     // 인증 후 이동할 대상
+
+function requireAdmin(target) {
+  if (adminUnlocked) {
+    _doAdminAction(target);
+    return;
+  }
+  adminTarget = target;
+  const bg = document.getElementById('adminModalBg');
+  bg.classList.add('open');
+  setTimeout(() => document.getElementById('adminPwInput').focus(), 100);
+}
+
+function checkAdminPw() {
+  const val = document.getElementById('adminPwInput').value;
+  if (val === ADMIN_PW) {
+    adminUnlocked = true;
+    closeAdminModal();
+    _doAdminAction(adminTarget);
+  } else {
+    const err = document.getElementById('adminPwErr');
+    err.textContent = '비밀번호가 틀렸습니다.';
+    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwInput').focus();
+    // 흔들기 애니메이션
+    const input = document.getElementById('adminPwInput');
+    input.style.animation = 'none';
+    input.offsetHeight; // reflow
+    input.style.borderColor = '#c0392b';
+    setTimeout(() => input.style.borderColor = '', 1000);
+  }
+}
+
+function closeAdminModal() {
+  document.getElementById('adminModalBg').classList.remove('open');
+  document.getElementById('adminPwInput').value = '';
+  document.getElementById('adminPwErr').textContent = '';
+}
+
+function _doAdminAction(target) {
+  if (target === 'apiModal') {
+    openApiModal();
+  } else {
+    showPage(target);
+  }
+}
+
+// 세션 잠금 해제 버튼 (홈 복귀 시 잠금 유지, 원하면 수동 잠금 가능)
+function lockAdmin() {
+  adminUnlocked = false;
+  showSyncStatus('🔒 관리자 잠금', 'info');
+}
+
+function openApiModal() {
+  const modal = document.getElementById('apiModal');
+  modal.style.display = 'flex';
+  document.getElementById('apiUrlInput').value = apiConfigured() ? API_URL : '';
+}
+function closeApiModal() {
+  document.getElementById('apiModal').style.display = 'none';
+}
+async function saveApiUrl() {
+  const url = document.getElementById('apiUrlInput').value.trim();
+  if (!url) { alert('URL을 입력해주세요.'); return; }
+  // 전역 API_URL 업데이트
+  window.API_URL = url;
+  localStorage.setItem('cms_api_url', url);
+  closeApiModal();
+  showSyncStatus('🔄 연결 테스트 중... (최대 15초)', 'loading');
+  // ping으로 먼저 테스트
+  const r = await apiGet('ping');
+  if (r && r.ok) {
+    showSyncStatus('✅ 연결 성공! 데이터 불러오는 중...', 'success');
+    updateSheetsBanner(true);
+    await loadFromSheets();
+  } else {
+    // 상세 안내
+    showSyncStatus('❌ 연결 실패 — 새 탭에서 URL을 직접 확인합니다', 'error');
+    setTimeout(() => {
+      const testUrl = (window.API_URL||'') + '?action=ping&callback=test';
+      if (confirm('연결 실패했습니다.\n\n아래 URL을 새 탭에서 열어서\ntest({"ok":true,"message":"pong"}) 가 보이는지 확인해주세요.\n\n' + testUrl + '\n\n[확인] 새 탭으로 열기')) {
+        window.open(testUrl, '_blank');
+      }
+    }, 300);
+  }
+}
+async function syncFromSheets() {
+  if (!apiConfigured()) {
+    alert('먼저 Google Sheets 연동 설정을 완료해주세요.');
+    openApiModal();
+    return;
+  }
+  await loadFromSheets();
+}
+function updateSheetsBanner(connected) {
+  const b = document.getElementById('sheetsStatusBanner');
+  if (!b) return;
+  if (connected) {
+    b.style.display = 'block';
+    b.style.background = '#d4edda';
+    b.style.color = '#145a24';
+    b.style.border = '1px solid #a3d9b1';
+    b.textContent = '☁️ Google Sheets 연동됨 — 데이터가 자동으로 공유됩니다';
+  } else {
+    b.style.display = 'block';
+    b.style.background = '#fff7e6';
+    b.style.color = '#7b4a00';
+    b.style.border = '1px solid #f6d860';
+    b.textContent = '💾 로컬 저장 모드 — Google Sheets 연동 시 팀과 데이터 공유 가능';
+  }
+}
+
+function printStudentView() {
+  const printArea = document.getElementById('studentViewOutput').innerHTML;
+  const win = window.open('', '_blank', 'width=1200,height=800');
+  win.document.write(`<!DOCTYPE html><html lang="ko"><head>
+    <meta charset="UTF-8">
+    <title>학생별 일정 인쇄</title>
+    <style>
+      body { font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; font-size:11px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px 6px; white-space: nowrap; text-align: center; }
+      .col-info { text-align: left; }
+      .cell-exam { background: #fde8d8; }
+      .cell-vacation { background: #d4edda; }
+      .empty-cell { background: #fff; }
+      .header-date { background: #2c5282; color: #fff; font-weight: 700; }
+      .header-day { background: #f3f4f6; }
+    </style>
+  </head><body>${printArea}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{ win.print(); }, 400);
+}
+
+// ===== 학교별 일정 일괄 업로드 =====
+let pendingSchedData = {};
+
+function handleSchedFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const wb   = XLSX.read(data, {type:'array'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      pendingSchedData = parseSchedRows(rows);
+      showSchedPreview(pendingSchedData);
+    } catch(err) {
+      document.getElementById('schedUploadStatus').innerHTML =
+        '<div style="color:red;padding:10px;">파일 오류: ' + err.message + '</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// 날짜 문자열 파싱: "04.19-04.20(2,3)" → {start:'2026-04-19', end:'2026-04-20', grades:['2학년','3학년']}
+function parseSchedDateCell(cell, year) {
+  if (!cell || !String(cell).trim()) return null;
+  const str = String(cell).trim();
+  // 학년 추출: (2,3) 또는 (1,2) 등
+  const gradeMatch = str.match(/\(([0-9,]+)\)/);
+  let grades;
+  if (!gradeMatch) {
+    grades = ['공통'];
+  } else {
+    const nums = gradeMatch[1].split(',').map(g => g.trim());
+    // 1,2,3 모두 포함되면 공통
+    if (nums.includes('1') && nums.includes('2') && nums.includes('3')) {
+      grades = ['공통'];
+    } else {
+      grades = nums.map(g => g + '학년');
+    }
+  }
+  // 날짜 추출
+  const dateStr = str.replace(/\([^)]*\)/g,'').trim();
+  const parts   = dateStr.split('-');
+  function toISO(d) {
+    if (!d) return '';
+    const clean = d.trim().replace(/\//g,'.').replace(/년|월/g,'.');
+    const nums  = clean.split('.').filter(Boolean);
+    if (nums.length >= 2) {
+      const m = String(nums[0]).padStart(2,'0');
+      const day = String(nums[1]).padStart(2,'0');
+      return `${year}-${m}-${day}`;
+    }
+    return '';
+  }
+  const start = toISO(parts[0]);
+  const end   = parts.length > 1 ? toISO(parts[1]) : start;
+  if (!start) return null;
+  return { start, end, grades };
+}
+
+// 방학 셀 파싱: "07.21/08.17" → {vacStart:'2026-07-21', vacEnd:'2026-08-17'}
+// 또는 "01.03/01.03/01.03" → {vacStart, vacEnd, vacClose}
+function parseVacCell(cell, year) {
+  if (!cell || !String(cell).trim()) return null;
+  const str   = String(cell).trim();
+  const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+  function toISO(d) {
+    const nums = d.split('.').filter(Boolean);
+    if (nums.length < 2) return '';
+    const m = String(nums[0]).padStart(2,'0');
+    const day = String(nums[1]).padStart(2,'0');
+    // 겨울방학 개학식이 1~3월이면 다음해
+    const useYear = (parseInt(m) <= 3) ? year + 1 : year;
+    return `${useYear}-${m}-${day}`;
+  }
+  return {
+    start: parts[0] ? toISO(parts[0]) : '',
+    end:   parts[1] ? toISO(parts[1]) : '',
+    close: parts[2] ? toISO(parts[2]) : '',
+  };
+}
+
+function parseSchedRows(rows) {
+  const result = {};
+  const year   = new Date().getFullYear();
+  // 헤더 행 스킵 (첫 2행이 헤더인 경우)
+  // 학교명이 있는 첫 행 찾기
+  let startRow = 0;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    if (rows[i][0] && /중|고|초|학교/.test(String(rows[i][0]))) { startRow = i; break; }
+  }
+
+  for (let i = startRow; i < rows.length; i++) {
+    const row = rows[i];
+    const school = String(row[0] || '').trim();
+    if (!school || school.length < 2) continue;
+
+    // 열 위치: A=0(학교), B=1(중1), C=2(중2), D=3(중3)
+    // E=4(1학기중간), F=5(1학기기말), G=6(여름방학), H=7(2학기중간), I=8(2학기기말), J=9(겨울방학)
+    const mid1raw  = row[1]; // 1학기 중간 (B열)
+    const fin1raw  = row[2]; // 1학기 기말 (C열)
+    const sumRaw   = row[3]; // 여름방학   (D열)
+    const mid2raw  = row[4]; // 2학기 중간 (E열)
+    const fin2raw  = row[5]; // 2학기 기말 (F열)
+    const winRaw   = row[6]; // 겨울방학   (G열)
+
+    if (!result[school]) result[school] = { grades: {} };
+
+    function ensureGrade(g) {
+      if (!result[school].grades[g]) result[school].grades[g] = {};
+    }
+
+    // 내신 파싱 및 저장 (줄바꿈 여러 줄 지원)
+    function applyExam(raw, key) {
+      if (!raw) return;
+      const lines = String(raw).replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
+      lines.forEach(line => {
+        const parsed = parseSchedDateCell(line, year);
+        if (!parsed) return;
+        parsed.grades.forEach(g => {
+          ensureGrade(g);
+          result[school].grades[g][key + '_start'] = parsed.start;
+          result[school].grades[g][key + '_end']   = parsed.end;
+        });
+      });
+    }
+    applyExam(mid1raw, 'mid1');
+    applyExam(fin1raw, 'fin1');
+    applyExam(mid2raw, 'mid2');
+    // 2학기기말: 셀 안에 줄바꿈으로 여러 일정이 있을 수 있음
+    // 예) "10.26-10.28(3) / 12.06-12.08(1,2)"
+    if (fin2raw) {
+      const lines = String(fin2raw).replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
+      lines.forEach(line => {
+        const p = parseSchedDateCell(line, year);
+        if (!p) return;
+        const hasGrade3 = p.grades.includes('3학년');
+        const others    = p.grades.filter(g => g !== '3학년');
+        if (hasGrade3) {
+          ensureGrade('3학년');
+          result[school].grades['3학년']['fin2b_start'] = p.start;
+          result[school].grades['3학년']['fin2b_end']   = p.end;
+        }
+        if (others.length > 0) {
+          others.forEach(g => {
+            ensureGrade(g);
+            result[school].grades[g]['fin2_start'] = p.start;
+            result[school].grades[g]['fin2_end']   = p.end;
+          });
+        }
+        // 학년 표기 없으면 공통
+        if (!hasGrade3 && others.length === 0) {
+          ensureGrade('공통');
+          result[school].grades['공통']['fin2_start'] = p.start;
+          result[school].grades['공통']['fin2_end']   = p.end;
+        }
+      });
+    }
+    // 여름방학
+    if (sumRaw) {
+      const sv = parseVacCell(sumRaw, year);
+      if (sv) {
+        const allGrades = ['공통','1학년','2학년','3학년'];
+        const existGrades = Object.keys(result[school].grades);
+        const targets = existGrades.length > 0 ? existGrades : ['공통'];
+        targets.forEach(g => {
+          ensureGrade(g);
+          if (sv.start) result[school].grades[g]['sum_start'] = sv.start;
+          if (sv.end)   result[school].grades[g]['sum_end']   = sv.end;
+        });
+      }
+    }
+    // 겨울방학
+    if (winRaw) {
+      const wv = parseVacCell(winRaw, year);
+      if (wv) {
+        const existGrades = Object.keys(result[school].grades);
+        const targets = existGrades.length > 0 ? existGrades : ['공통'];
+        targets.forEach(g => {
+          ensureGrade(g);
+          if (wv.start) result[school].grades[g]['win_start'] = wv.start;
+          if (wv.end)   result[school].grades[g]['win_end']   = wv.end;
+          if (wv.close) result[school].grades[g]['win_close'] = wv.close;
+        });
+      }
+    }
+  }
+  return result;
+}
+
+function showSchedPreview(data) {
+  const schools = Object.keys(data);
+  document.getElementById('schedPreviewSection').style.display = '';
+  document.getElementById('schedUploadInfo').textContent =
+    `📊 ${schools.length}개 학교 일정이 인식되었습니다. 아래 내용을 확인 후 적용하세요.`;
+
+  const box = document.getElementById('schedPreviewBox');
+  box.innerHTML = schools.slice(0,20).map(school => {
+    const grades = data[school].grades || {};
+    const gradeLines = Object.entries(grades).map(([g, d]) => {
+      const fields = ['mid1_start','fin1_start','mid2_start','fin2_start','fin2b_start','sum_start','win_start'];
+      const vals   = fields.filter(f=>d[f]).map(f=>f.replace('_start','')+'='+d[f]).join(', ');
+      return `<span class="tag">${g}</span> ${vals}`;
+    }).join(' | ');
+    return `<div class="preview-row"><strong style="min-width:120px">${school}</strong><span style="font-size:11px;color:var(--text2)">${gradeLines}</span></div>`;
+  }).join('') + (schools.length > 20 ? `<div style="padding:8px;color:var(--text2);">...외 ${schools.length-20}개 학교</div>` : '');
+}
+
+async function confirmSchedUpload() {
+  if (!Object.keys(pendingSchedData).length) return;
+  // 기존 데이터와 머지 (새 데이터 우선)
+  Object.entries(pendingSchedData).forEach(([school, schData]) => {
+    if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+    if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+    Object.entries(schData.grades || {}).forEach(([grade, gradeData]) => {
+      if (!schoolSchedules[school].grades[grade]) schoolSchedules[school].grades[grade] = {};
+      Object.assign(schoolSchedules[school].grades[grade], gradeData);
+    });
+  });
+  save();
+
+  document.getElementById('schedPreviewSection').style.display = 'none';
+  document.getElementById('schedFileInput').value = '';
+
+  if (apiConfigured()) {
+    showSyncStatus('☁️ Sheets에 일정 저장 중...', 'loading');
+    const ok = await saveScheduleToSheets(pendingSchedData);
+    if (ok) showSyncStatus(`✅ ${Object.keys(pendingSchedData).length}개 학교 일정 Sheets 저장 완료!`, 'success');
+    else    showSyncStatus('⚠️ 로컬 저장 완료, Sheets 저장 실패', 'error');
+  } else {
+    alert(`✅ ${Object.keys(pendingSchedData).length}개 학교 일정이 적용되었습니다!`);
+  }
+  pendingSchedData = {};
+}
+
+function cancelSchedUpload() {
+  pendingSchedData = {};
+  document.getElementById('schedPreviewSection').style.display = 'none';
+  document.getElementById('schedFileInput').value = '';
+}
+
+// drag & drop for sched upload
+window.addEventListener('load', function() {
+  const sua = document.querySelector('#schedUploadArea');
+  if (!sua) return;
+  sua.addEventListener('dragover', e => { e.preventDefault(); sua.style.borderColor='var(--accent)'; });
+  sua.addEventListener('dragleave', () => { sua.style.borderColor=''; });
+  sua.addEventListener('drop', e => {
+    e.preventDefault(); sua.style.borderColor='';
+    const f = e.dataTransfer.files[0];
+    if (f) handleSchedFileUpload({target:{files:[f]}});
+  });
+});
+
+// 페이지 로드 완료 후 초기화
+window.addEventListener('load', async () => {
+  const connected = apiConfigured();
+  updateSheetsBanner(connected);
+  if (connected) {
+    await loadFromSheets();
+  }
+});
+
+// drag & drop
+const ua=document.querySelector('.upload-area');
+if(ua){
+  ua.addEventListener('dragover',e=>{e.preventDefault();ua.style.borderColor='var(--accent)';});
+  ua.addEventListener('dragleave',()=>{ua.style.borderColor='var(--border)';});
+  ua.addEventListener('drop',e=>{
+    e.preventDefault();ua.style.borderColor='var(--border)';
+    const f=e.dataTransfer.files[0];
+    if(f){const dt=new DataTransfer();dt.items.add(f);document.getElementById('fileInput').files=dt.files;handleFileUpload({target:{files:[f]}});}
+  });
+}
+</script>
+</body>
+</html>
