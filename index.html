@@ -242,10 +242,10 @@
       <div class="title">학생명단 업로드</div>
       <div class="desc">엑셀 파일로 학생 명단(반·이름·학교·학년)을 업로드 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
     </div>
-    <div class="home-card" onclick="requireAdmin('schedule-input')">
+    <div class="home-card" onclick="showPage('schedule-input')">
       <div class="icon">📅</div>
       <div class="title">학교별 일정 입력</div>
-      <div class="desc">학교별 내신·방학 시작일·종료일 입력 및 수정 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
+      <div class="desc">학교별 내신·방학 시작일·종료일 입력 및 수정</div>
     </div>
     <div class="home-card" onclick="requireAdmin('sched-upload')" style="grid-column:1/-1;max-width:600px;margin:0 auto;">
       <div class="icon">📊</div>
@@ -374,7 +374,7 @@
       </div>
       <div class="filter-group">
         <label>내신/방학</label>
-        <select id="f-type">
+        <select id="f-type" onchange="autoSetStartByType()">
           <option value="">전체</option>
           <option value="1학기중간">1학기 중간</option>
           <option value="1학기기말">1학기 기말</option>
@@ -1466,6 +1466,92 @@ async function saveAllSchedules() {
   }
 }
 
+// 학생 삭제
+async function deleteStudent(idx, name) {
+  if (!confirm(`[${name}] 학생을 삭제하시겠습니까?`)) return;
+  students.splice(idx, 1);
+  save();
+  // Sheets 동기화
+  if (apiConfigured()) {
+    showSyncStatus('☁️ Sheets에서 삭제 중...', 'loading');
+    // 이름으로 단일 행 삭제 — 전체 재전송보다 훨씬 빠름
+    const r = await apiPost('deleteStudent', { name });
+    if (r && r.ok) showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
+    else {
+      const ok = await saveStudentsToSheets(students);
+      if (ok) showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
+      else    showSyncStatus('✅ 로컬 삭제 완료 (Sheets 동기화 실패)', 'error');
+    }
+  } else {
+    showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
+  }
+  renderStudentView();
+}
+
+// 학생 추가 폼 표시
+function showAddStudentRow() {
+  const form = document.getElementById('addStudentForm');
+  if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+// 학생 추가 저장
+async function confirmAddStudent() {
+  const cls   = document.getElementById('add-class')?.value  || '';
+  const name  = document.getElementById('add-name')?.value.trim()  || '';
+  const school= document.getElementById('add-school')?.value.trim()|| '';
+  const grade = document.getElementById('add-grade')?.value  || '';
+  if (!name) { alert('이름을 입력해주세요.'); return; }
+  if (!grade) { alert('학년을 선택해주세요.'); return; }
+
+  const newStudent = { name, school, class: cls, grade };
+  students.push(newStudent);
+  // 학교 일정 목록에도 추가
+  if (school && !schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+  save();
+
+  document.getElementById('addStudentForm').style.display = 'none';
+  // 입력 초기화
+  ['add-name','add-school'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['add-class','add-grade'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+
+  if (apiConfigured()) {
+    showSyncStatus('☁️ Sheets에 저장 중...', 'loading');
+    // 1명만 append — 전체 재전송보다 수십 배 빠름
+    const r = await apiPost('appendStudent', newStudent);
+    if (r && r.ok) showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
+    else {
+      // fallback: 전체 재전송
+      const ok = await saveStudentsToSheets(students);
+      if (ok) showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
+      else    showSyncStatus('✅ 로컬 추가 완료 (Sheets 동기화 실패)', 'error');
+    }
+  } else {
+    showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
+  }
+  initStudentFilters();
+  renderStudentView();
+}
+
+// 내신/방학 선택 시 시작일 자동 셋팅
+function autoSetStartByType() {
+  const type = document.getElementById('f-type').value;
+  const startEl = document.getElementById('f-start');
+  const year = new Date().getFullYear();
+  const map = {
+    '1학기중간': `${year}-04-15`,
+    '1학기기말': `${year}-06-15`,
+    '2학기중간': `${year}-09-15`,
+    '2학기기말': `${year}-11-15`,
+    '여름방학':  `${year}-07-15`,
+    '겨울방학':  `${year}-12-15`,
+  };
+  if (map[type]) {
+    startEl.value = map[type];
+    // 종료일 초기화
+    document.getElementById('f-end').value = '';
+  }
+}
+
 // ===== STUDENT VIEW =====
 // Combo box data stores
 let comboData = { class: [], name: [], school: [] };
@@ -1601,15 +1687,17 @@ function renderStudentView() {
 
   // Header rows — 4 info cols sticky left + sticky top
   let headerDate=`<tr>
-    <th class="col-info hdr-fixed-0" style="min-width:160px;padding:6px 10px;font-weight:700;">반</th>
-    <th class="col-info hdr-fixed-1" style="min-width:94px;padding:6px 10px;font-weight:700;">이름</th>
-    <th class="col-info hdr-fixed-2" style="min-width:94px;padding:6px 10px;font-weight:700;">학교</th>
-    <th class="col-info hdr-fixed-3" style="min-width:94px;padding:6px 10px;font-weight:700;">학년</th>`;
+    <th class="col-info hdr-fixed-0" style="min-width:44px;padding:6px 6px;font-weight:700;background:#2c5282;color:#fff;position:sticky;top:0;left:0;z-index:50;"></th>
+    <th class="col-info hdr-fixed-1" style="min-width:160px;padding:6px 10px;font-weight:700;left:44px;">반</th>
+    <th class="col-info hdr-fixed-2" style="min-width:94px;padding:6px 10px;font-weight:700;left:204px;">이름</th>
+    <th class="col-info hdr-fixed-3" style="min-width:94px;padding:6px 10px;font-weight:700;left:298px;">학교</th>
+    <th class="col-info" style="min-width:94px;padding:6px 10px;font-weight:700;background:#2c5282;color:#fff;position:sticky;top:0;">학년</th>`;
   let headerDay=`<tr>
-    <th class="hdr-day-fixed-0" style="min-width:160px;padding:4px 10px;"></th>
-    <th class="hdr-day-fixed-1" style="min-width:94px;"></th>
-    <th class="hdr-day-fixed-2" style="min-width:94px;"></th>
-    <th class="hdr-day-fixed-3" style="min-width:94px;"></th>`;
+    <th style="position:sticky;top:31px;left:0;z-index:50;background:#e8edf5;min-width:44px;"></th>
+    <th class="hdr-day-fixed-1" style="min-width:160px;left:44px;"></th>
+    <th class="hdr-day-fixed-2" style="min-width:94px;left:204px;"></th>
+    <th class="hdr-day-fixed-3" style="min-width:94px;left:298px;"></th>
+    <th style="position:sticky;top:31px;background:#e8edf5;min-width:94px;"></th>`;
   dates.forEach(d=>{
     const day=d.getDay();
     const dayStr=DAYS_KO[day];
@@ -1626,7 +1714,15 @@ function renderStudentView() {
   const rows = filtered.map(s => {
     // 각 날짜별로 가장 우선순위 높은 일정 표시
     const scheds = activeTypes.map(t => getStudentSchedule(s, t)).filter(Boolean);
-    let rowHtml = `<td class="col-info col-class col-fixed col-fixed-0">${s.class}</td><td class="col-info col-fixed col-fixed-1">${s.name}</td><td class="col-info col-fixed col-fixed-2">${s.school}</td><td class="col-info col-fixed col-fixed-3">${s.grade}</td>`;
+    const sIdx = students.indexOf(s);
+    const sNameEsc = s.name.replace(/'/g,"\'");
+    let rowHtml = `<td class="col-info col-fixed" style="position:sticky;left:0;z-index:5;background:var(--bg2);min-width:44px;text-align:center;padding:2px;">
+      <button onclick="deleteStudent(${sIdx},'${sNameEsc}')" style="background:#e74c3c;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;" title="삭제">✕</button>
+    </td>
+    <td class="col-info col-class col-fixed" style="position:sticky;left:44px;z-index:5;background:var(--bg2);min-width:160px;">${s.class}</td>
+    <td class="col-info col-fixed" style="position:sticky;left:204px;z-index:5;background:var(--bg2);min-width:94px;">${s.name}</td>
+    <td class="col-info col-fixed" style="position:sticky;left:298px;z-index:5;background:var(--bg2);min-width:94px;">${s.school}</td>
+    <td class="col-info" style="min-width:94px;">${s.grade}</td>`;
     dates.forEach(d => {
       // 여러 일정 중 매칭되는 것 우선순위: 마 > 첫 > 내신 > 방학
       let cell = null;
@@ -1653,7 +1749,37 @@ function renderStudentView() {
     return `<tr>${rowHtml}</tr>`;
   }).join('');
 
-  out.innerHTML = `<div class="schedule-wrap"><table class="schedule-table">${headerDate}${headerDay}${rows}</table></div>`;
+  out.innerHTML = `<div class="schedule-wrap"><table class="schedule-table" id="studentTable">${headerDate}${headerDay}${rows}</table></div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-success" onclick="showAddStudentRow()" style="font-size:13px;">➕ 학생 추가</button>
+    </div>
+    <div id="addStudentForm" style="display:none;margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-weight:700;margin-bottom:10px;font-size:14px;">➕ 학생 추가</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:600;color:var(--text2);">반</label>
+          <input type="text" id="add-class" placeholder="반 입력 또는 선택" list="add-class-list"
+            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
+          <datalist id="add-class-list">
+            ${[...new Set(students.map(s=>s.class))].filter(Boolean).sort().map(c=>`<option value="${c}">`).join('')}
+          </datalist></div>
+        <div><label style="font-size:11px;font-weight:600;color:var(--text2);">이름 *</label>
+          <input type="text" id="add-name" placeholder="이름 입력" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;"></div>
+        <div><label style="font-size:11px;font-weight:600;color:var(--text2);">학교</label>
+          <input type="text" id="add-school" placeholder="학교 입력 또는 선택" list="add-school-list" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
+          <datalist id="add-school-list">
+            ${[...new Set(students.map(s=>s.school))].filter(Boolean).sort().map(s=>`<option value="${s}">`).join('')}
+          </datalist></div>
+        <div><label style="font-size:11px;font-weight:600;color:var(--text2);">학년</label>
+          <select id="add-grade" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
+            <option value="">선택</option>
+            ${['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'].map(g=>`<option value="${g}">${g}</option>`).join('')}
+          </select></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="confirmAddStudent()">💾 저장</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('addStudentForm').style.display='none'">취소</button>
+      </div>
+    </div>`;
 }
 
 function parseDate(s) {
