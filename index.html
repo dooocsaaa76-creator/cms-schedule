@@ -27,7 +27,7 @@
   body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
   /* NAV */
-  .nav { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  .nav { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
   .nav h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
   .nav .nav-sub { font-size: 12px; opacity: 0.75; }
   .nav .back-btn { margin-left: auto; background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -254,7 +254,7 @@
     </div>
   </div>
   <div style="text-align:center;margin-top:24px;">
-    <button class="btn btn-secondary" onclick="requireAdmin('apiModal')" style="font-size:12px;padding:6px 16px;">⚙️ Google Sheets 연동 설정</button>
+    <button class="btn btn-secondary" onclick="openApiModal()" style="font-size:12px;padding:6px 16px;">⚙️ Google Sheets 연동 설정</button>
     <button class="btn btn-secondary" onclick="syncFromSheets()" style="font-size:12px;padding:6px 16px;margin-left:8px;">🔄 Sheets에서 데이터 불러오기</button>
   </div>
 
@@ -1349,7 +1349,7 @@ async function saveOneSchool(school) {
   // Sheets 저장
   if (apiConfigured()) {
     const chunk = { [school]: schoolSchedules[school] };
-    const r = await apiPost('saveAllSchedules', chunk);
+    const r = await apiPost('saveSchedulesBatch', chunk);
     if (btn) {
       if (r && r.ok) {
         btn.textContent = '✅ 저장됨'; btn.className = 'sch-save-btn done';
@@ -1972,7 +1972,8 @@ function renderSchoolView() {
   const isFin2 = svType==='2학기기말';
   let thead=`<tr><th style="text-align:left;min-width:120px;">학교명</th>${filtGrades.map(g=>`<th>${g}</th>`).join('')}<th>합계</th>`;
   if(showSched) {
-    if(svType==='여름방학'||svType==='겨울방학') thead+=`<th>방학식</th><th>개학식</th>`;
+    if(svType==='여름방학') thead+=`<th>방학식</th><th>개학식</th>`;
+    else if(svType==='겨울방학') thead+=`<th>방학식</th><th>개학식</th><th>종업식</th>`;
     else if(isFin2) thead+=`<th>구분</th><th>시작일</th><th>종료일</th>`;
     else thead+=`<th>시작일</th><th>종료일</th>`;
   }
@@ -2014,12 +2015,13 @@ function renderSchoolView() {
         cells+=`<td>${gd.sum_start?`${badge}<span class="date-pill">${gd.sum_start}</span>`:'-'}</td><td>${gd.sum_end?`<span class="date-pill">${gd.sum_end}</span>`:'-'}</td>`;
       } else if(svType==='겨울방학'){
         const gd=sch&&sch.grades?(sch.grades['공통']||Object.values(sch.grades)[0]||{}):{};
-        // 종업식만 있으면 방학식·개학식도 종업식과 동일로 표시
         const dispStart = gd.win_start || gd.win_close || '';
         const dispEnd   = gd.win_end   || gd.win_close || '';
+        const dispClose = gd.win_close || '';
         const badge = dispStart ? getGradeBadge(['공통']) : '';
-        const noteClose = (!gd.win_start && gd.win_close) ? ' <span style="font-size:10px;color:#888;">(종업식)</span>' : '';
-        cells+=`<td>${dispStart?`${badge}<span class="date-pill">${dispStart}</span>${noteClose}`:'-'}</td><td>${dispEnd?`<span class="date-pill">${dispEnd}</span>`:'-'}</td>`;
+        cells+=`<td>${dispStart?`${badge}<span class="date-pill">${dispStart}</span>`:'-'}</td>`;
+        cells+=`<td>${dispEnd?`<span class="date-pill">${dispEnd}</span>`:'-'}</td>`;
+        cells+=`<td>${dispClose?`<span class="date-pill">${dispClose}</span>`:'-'}</td>`;
       } else if(isFin2) {
         // 2학기기말: 구분 | 시작일 | 종료일 — 중1·2와 중3을 각각 별도 행으로
         const fin2Grades  = getGradesWithExamData(school, 'fin2');
@@ -2075,7 +2077,7 @@ function renderSchoolView() {
   const grandTotal=filtGrades.reduce((sum,g)=>sum+(gradeTotals[g]||0),0);
   let footerCells=filtGrades.map(g=>`<td style="font-weight:700;font-size:14px;color:var(--accent);">${gradeTotals[g]||''}</td>`).join('');
   footerCells+=`<td style="font-weight:700;font-size:15px;color:var(--accent);">${grandTotal}</td>`;
-  if(showSched) footerCells+=isFin2?`<td></td><td></td><td></td>`:`<td></td><td></td>`;
+  if(showSched) footerCells+=isFin2?`<td></td><td></td><td></td>`:svType==='겨울방학'?`<td></td><td></td><td></td>`:`<td></td><td></td>`;
   const tfoot=`<tfoot><tr style="background:var(--accent2);border-top:2px solid var(--accent);"><td style="text-align:left;font-weight:700;padding:8px 14px;color:var(--accent);">전체 합계</td>${footerCells}</tr></tfoot>`;
 
   out.innerHTML=`<div class="school-table-wrap"><table class="school-table"><thead>${thead}</thead><tbody>${tbodyRows}</tbody>${tfoot}</table></div>`;
