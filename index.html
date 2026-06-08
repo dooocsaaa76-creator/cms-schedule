@@ -1375,30 +1375,51 @@ async function confirmResetAllSchedules() {
   schools.forEach(school => { schoolSchedules[school].grades = {}; });
   Object.keys(_chkState).forEach(k => delete _chkState[k]);
   save();
-  if (apiConfigured()) {
-    showSyncStatus('☁️ Sheets 초기화 중...', 'loading');
-    // 모든 학교 행 삭제
-    const r = await apiPost('clearAllSchedules', { schools });
-    if (r && r.ok) showSyncStatus('✅ 초기화 완료! Sheets에도 반영되었습니다.', 'success');
-    else           showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
-  } else {
+
+  if (!apiConfigured()) {
     showSyncStatus('✅ 일정이 초기화되었습니다.', 'success');
+    renderScheduleInput();
+    return;
   }
+
+  showSyncStatus('☁️ Sheets 초기화 중... (전체 삭제)', 'loading');
+  // schools 배열 없이 호출 → Code.gs에서 전체 삭제
+  const r = await apiPost('clearAllSchedules', { all: true });
+  if (r && r.ok) showSyncStatus('✅ 초기화 완료! Sheets에도 반영되었습니다.', 'success');
+  else           showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
   renderScheduleInput();
 }
 
 // 특정 학교 일정만 초기화
 async function confirmResetOneSchool(school) {
   if (!confirm(`⚠️ [${school}]의 모든 일정을 초기화하시겠습니까?`)) return;
+
+  // 1. 로컬 메모리 초기화
   if (schoolSchedules[school]) schoolSchedules[school].grades = {};
   delete _chkState[school];
   save();
-  if (apiConfigured()) {
-    showSyncStatus('☁️ Sheets 초기화 중...', 'loading');
-    const r = await apiPost('clearAllSchedules', { schools: [school] });
-    if (r && r.ok) showSyncStatus(`✅ [${school}] 초기화 완료!`, 'success');
-    else           showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
+
+  if (!apiConfigured()) {
+    showSyncStatus(`✅ [${school}] 로컬 초기화 완료`, 'success');
+    renderScheduleInput();
+    return;
   }
+
+  showSyncStatus('☁️ Sheets 초기화 중...', 'loading');
+
+  // 2. Sheets에서 해당 학교 행 삭제
+  const r1 = await apiPost('clearAllSchedules', { schools: [school] });
+  if (r1 && r1.ok) {
+    showSyncStatus(`✅ [${school}] 초기화 완료!`, 'success');
+  } else {
+    // 실패 시 fallback: 빈 공통 행으로 덮어쓰기
+    const r2 = await apiPost('saveSchedulesBatch', {
+      [school]: { grades: { '공통': {} } }
+    });
+    if (r2 && r2.ok) showSyncStatus(`✅ [${school}] 초기화 완료!`, 'success');
+    else             showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
+  }
+
   renderScheduleInput();
 }
 
