@@ -24,10 +24,10 @@
     --first-text: #fff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-top: 52px; }
 
   /* NAV */
-  .nav { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .nav { background: var(--accent); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
   .nav h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
   .nav .nav-sub { font-size: 12px; opacity: 0.75; }
   .nav .back-btn { margin-left: auto; background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -1368,22 +1368,19 @@ async function saveOneSchool(school) {
 }
 
 // 전체 일정 초기화
-function confirmResetAllSchedules() {
+async function confirmResetAllSchedules() {
   const msg = '⚠️ 모든 학교의 내신·방학 일정이 삭제됩니다.\n\n다음 연도 일정 입력을 위해 초기화하려면 확인을 누르세요.\n(학생명단은 유지됩니다)';
   if (!confirm(msg)) return;
-  // schoolSchedules의 grades 데이터만 초기화 (학교 목록은 유지)
-  Object.keys(schoolSchedules).forEach(school => {
-    schoolSchedules[school].grades = {};
-  });
-  // _chkState 초기화
+  const schools = Object.keys(schoolSchedules);
+  schools.forEach(school => { schoolSchedules[school].grades = {}; });
   Object.keys(_chkState).forEach(k => delete _chkState[k]);
   save();
   if (apiConfigured()) {
-    showSyncStatus('☁️ 초기화 내용 Sheets에 반영 중...', 'loading');
-    saveScheduleToSheets(schoolSchedules).then(ok => {
-      if (ok) showSyncStatus('✅ 초기화 완료! Sheets에도 반영되었습니다.', 'success');
-      else    showSyncStatus('✅ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
-    });
+    showSyncStatus('☁️ Sheets 초기화 중...', 'loading');
+    // 모든 학교 행 삭제
+    const r = await apiPost('clearAllSchedules', { schools });
+    if (r && r.ok) showSyncStatus('✅ 초기화 완료! Sheets에도 반영되었습니다.', 'success');
+    else           showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
   } else {
     showSyncStatus('✅ 일정이 초기화되었습니다.', 'success');
   }
@@ -1391,15 +1388,16 @@ function confirmResetAllSchedules() {
 }
 
 // 특정 학교 일정만 초기화
-function confirmResetOneSchool(school) {
+async function confirmResetOneSchool(school) {
   if (!confirm(`⚠️ [${school}]의 모든 일정을 초기화하시겠습니까?`)) return;
   if (schoolSchedules[school]) schoolSchedules[school].grades = {};
-  // 해당 학교 _chkState 초기화
   delete _chkState[school];
   save();
   if (apiConfigured()) {
-    const chunk = { [school]: schoolSchedules[school] };
-    saveScheduleToSheets(chunk).then(() => {});
+    showSyncStatus('☁️ Sheets 초기화 중...', 'loading');
+    const r = await apiPost('clearAllSchedules', { schools: [school] });
+    if (r && r.ok) showSyncStatus(`✅ [${school}] 초기화 완료!`, 'success');
+    else           showSyncStatus('⚠️ 로컬 초기화 완료 (Sheets 반영 실패)', 'error');
   }
   renderScheduleInput();
 }
@@ -1970,12 +1968,13 @@ function renderSchoolView() {
 
   // 2학기기말은 중1·2 / 중3 두 행 가능
   const isFin2 = svType==='2학기기말';
+  const isVac  = svType==='여름방학'||svType==='겨울방학';
+  const isExam = showSched && !isVac;
   let thead=`<tr><th style="text-align:left;min-width:120px;">학교명</th>${filtGrades.map(g=>`<th>${g}</th>`).join('')}<th>합계</th>`;
   if(showSched) {
-    if(svType==='여름방학') thead+=`<th>방학식</th><th>개학식</th>`;
+    if(svType==='여름방학')  thead+=`<th>방학식</th><th>개학식</th>`;
     else if(svType==='겨울방학') thead+=`<th>방학식</th><th>개학식</th><th>종업식</th>`;
-    else if(isFin2) thead+=`<th>구분</th><th>시작일</th><th>종료일</th>`;
-    else thead+=`<th>시작일</th><th>종료일</th>`;
+    else if(isExam) thead+=`<th>구분</th><th>시작일</th><th>종료일</th>`;
   }
   thead+='</tr>';
 
@@ -2057,13 +2056,19 @@ function renderSchoolView() {
           cells += `<td>${lines.map(l=>l.start).join('<br>')}</td>`;
           cells += `<td>${lines.map(l=>l.end).join('<br>')}</td>`;
         }
-      } else {
-        const key=keyMap[svType];
+      } else if(isExam) {
+        const key = keyMap[svType];
         const gradesWithData = getGradesWithExamData(school, key);
-        const badge = gradesWithData.length>0 ? getGradeBadge(gradesWithData) : '';
-        const dispGrade = gradesWithData.includes('공통') ? '공통' : gradesWithData[0];
-        const gd = dispGrade&&sch&&sch.grades&&sch.grades[dispGrade] ? sch.grades[dispGrade] : {};
-        cells+=`<td>${gd[key+'_start']?`${badge}<span class="date-pill">${gd[key+'_start']}</span>`:'-'}</td><td>${gd[key+'_end']?`<span class="date-pill">${gd[key+'_end']}</span>`:'-'}</td>`;
+        if(gradesWithData.length === 0) {
+          cells+=`<td>-</td><td>-</td><td>-</td>`;
+        } else {
+          const badge = getGradeBadge(gradesWithData);
+          const dispGrade = gradesWithData.includes('공통') ? '공통' : gradesWithData[0];
+          const gd = sch&&sch.grades&&sch.grades[dispGrade] ? sch.grades[dispGrade] : {};
+          cells+=`<td style="text-align:center;">${badge}</td>`;
+          cells+=`<td>${gd[key+'_start']?`<span class="date-pill">${gd[key+'_start']}</span>`:'-'}</td>`;
+          cells+=`<td>${gd[key+'_end']?`<span class="date-pill">${gd[key+'_end']}</span>`:'-'}</td>`;
+        }
       }
     }
     return `<tr><td class="school-name">${school}</td>${cells}</tr>`;
@@ -2077,7 +2082,7 @@ function renderSchoolView() {
   const grandTotal=filtGrades.reduce((sum,g)=>sum+(gradeTotals[g]||0),0);
   let footerCells=filtGrades.map(g=>`<td style="font-weight:700;font-size:14px;color:var(--accent);">${gradeTotals[g]||''}</td>`).join('');
   footerCells+=`<td style="font-weight:700;font-size:15px;color:var(--accent);">${grandTotal}</td>`;
-  if(showSched) footerCells+=isFin2?`<td></td><td></td><td></td>`:svType==='겨울방학'?`<td></td><td></td><td></td>`:`<td></td><td></td>`;
+  if(showSched) footerCells+=svType==='여름방학'?`<td></td><td></td>`:isVac||isExam||isFin2?`<td></td><td></td><td></td>`:`<td></td><td></td>`;
   const tfoot=`<tfoot><tr style="background:var(--accent2);border-top:2px solid var(--accent);"><td style="text-align:left;font-weight:700;padding:8px 14px;color:var(--accent);">전체 합계</td>${footerCells}</tr></tfoot>`;
 
   out.innerHTML=`<div class="school-table-wrap"><table class="school-table"><thead>${thead}</thead><tbody>${tbodyRows}</tbody>${tfoot}</table></div>`;
