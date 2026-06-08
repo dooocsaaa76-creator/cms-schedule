@@ -814,7 +814,7 @@ function getSchoolLevel(grade) {
 
 function showPreview() {
   document.getElementById('previewSection').style.display='';
-  document.getElementById('uploadInfo').textContent = `📊 총 ${pendingStudents.length}명의 학생 데이터가 인식되었습니다`;
+  document.getElementById('uploadInfo').textContent = `📊 총 ${pendingStudents.length}명의 학생 데이터가 인식되었습니다. 업로드 확정 시 기존 명단이 이 명단으로 교체됩니다.`;
   const box = document.getElementById('previewBox');
   box.innerHTML = pendingStudents.slice(0,30).map(s=>
     `<div class="preview-row"><span class="tag">${s.grade}</span><span style="min-width:80px">${s.name}</span><span style="color:var(--text2)">${s.school}</span><span style="margin-left:auto;font-size:11px;color:var(--text2)">${s.class}</span></div>`
@@ -822,26 +822,30 @@ function showPreview() {
 }
 
 async function confirmUpload() {
-  const existing = new Set(students.map(s=>s.name+'|'+s.school+'|'+s.grade));
-  let added = 0;
-  pendingStudents.forEach(s => {
-    const key = s.name+'|'+s.school+'|'+s.grade;
-    if (!existing.has(key)) { students.push(s); added++; }
+  const newCount = pendingStudents.length;
+
+  // 완전 교체: 기존 명단을 새 명단으로 덮어씀
+  students = [...pendingStudents];
+
+  // 학교 목록은 누적 유지 (기존 일정 보존)
+  students.forEach(s => {
+    if (s.school && !schoolSchedules[s.school]) {
+      schoolSchedules[s.school] = { grades: {} };
+    }
   });
-  pendingStudents.forEach(s => {
-    if (s.school && !schoolSchedules[s.school]) schoolSchedules[s.school] = {level: getSchoolLevel(s.grade), grades:{}};
-  });
+
   save();
   document.getElementById('previewSection').style.display='none';
   document.getElementById('fileInput').value='';
   pendingStudents=[];
+
   // Sheets 저장
   if (apiConfigured()) {
     const ok = await saveStudentsToSheets(students);
-    if (ok) showSyncStatus(`✅ 총 ${students.length}명 Google Sheets 저장 완료!`, 'success');
-    else    showSyncStatus(`⚠️ 로컬 저장 완료, Sheets 저장 일부 실패`, 'error');
+    if (ok) showSyncStatus(`✅ ${newCount}명 명단으로 교체 완료! (Sheets 저장됨)`, 'success');
+    else    showSyncStatus(`✅ ${newCount}명 로컬 저장 완료 (Sheets 저장 실패)`, 'error');
   } else {
-    alert(`✅ ${added}명 추가 업로드 완료! (총 ${students.length}명)
+    alert(`✅ ${newCount}명 명단으로 교체 완료!
 
 💡 Google Sheets 연동 시 자동 공유됩니다.`);
   }
