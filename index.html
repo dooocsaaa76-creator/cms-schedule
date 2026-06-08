@@ -603,25 +603,33 @@ function apiPost(action, data) {
 
 // 학생 명단 전체 저장 — 20명씩 청크로 나눠서 순차 전송
 async function saveStudentsToSheets(studentList) {
+  if (!studentList || studentList.length === 0) return false;
   const CHUNK = 20;
   const total = studentList.length;
-  // 첫 청크는 clear=true (시트 전체 초기화 후 저장)
+
+  // 첫 청크: clear=true 로 시트 전체 초기화 후 저장
+  // 나머지: clear=false 로 이어서 추가
   for (let i = 0; i < total; i += CHUNK) {
     const chunk = studentList.slice(i, i + CHUNK);
     const isFirst = (i === 0);
-    showSyncStatus(`☁️ Sheets 저장 중... (${Math.min(i+CHUNK, total)}/${total}명)`, 'loading');
+    const progress = Math.min(i + CHUNK, total);
+    showSyncStatus(`☁️ Sheets 저장 중... (${progress}/${total}명)`, 'loading');
+
     let r = await apiPost('saveStudentsChunk', { students: chunk, clear: isFirst });
     if (!r || !r.ok) {
-      // 재시도 1회
-      await new Promise(res => setTimeout(res, 600));
+      // 800ms 후 재시도
+      await new Promise(res => setTimeout(res, 800));
       r = await apiPost('saveStudentsChunk', { students: chunk, clear: isFirst });
       if (!r || !r.ok) {
-        showSyncStatus('❌ Sheets 저장 실패 (청크 ' + (i/CHUNK+1) + ')', 'error');
+        showSyncStatus(`❌ ${progress}/${total}명 저장 실패`, 'error');
         return false;
       }
     }
-    // 청크 사이 간격
-    if (i + CHUNK < total) await new Promise(res => setTimeout(res, 200));
+
+    // 첫 청크(초기화) 후 300ms 대기 - Sheets가 초기화 완료될 시간 확보
+    if (isFirst) await new Promise(res => setTimeout(res, 300));
+    // 이후 청크 사이는 150ms
+    else if (i + CHUNK < total) await new Promise(res => setTimeout(res, 150));
   }
   return true;
 }
