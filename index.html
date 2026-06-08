@@ -75,14 +75,17 @@
   .schedule-table .col-fixed-1 { left: 164px; }
   .schedule-table .col-fixed-2 { left: 258px; }
   .schedule-table .col-fixed-3 { left: 352px; }
+  .schedule-table .col-fixed-4 { left: 446px; }
   .schedule-table .hdr-fixed-0 { position: sticky; left: 0;     top: 0; z-index: 40; background: #2c5282; color:#fff; }
   .schedule-table .hdr-fixed-1 { position: sticky; left: 164px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
   .schedule-table .hdr-fixed-2 { position: sticky; left: 258px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
   .schedule-table .hdr-fixed-3 { position: sticky; left: 352px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
+  .schedule-table .hdr-fixed-4 { position: sticky; left: 446px; top: 0; z-index: 40; background: #2c5282; color:#fff; }
   .schedule-table .hdr-day-fixed-0 { position: sticky; left: 0;     top: 31px; z-index: 40; background: #e8edf5; }
   .schedule-table .hdr-day-fixed-1 { position: sticky; left: 164px; top: 31px; z-index: 40; background: #e8edf5; }
   .schedule-table .hdr-day-fixed-2 { position: sticky; left: 258px; top: 31px; z-index: 40; background: #e8edf5; }
   .schedule-table .hdr-day-fixed-3 { position: sticky; left: 352px; top: 31px; z-index: 40; background: #e8edf5; }
+  .schedule-table .hdr-day-fixed-4 { position: sticky; left: 446px; top: 31px; z-index: 40; background: #e8edf5; }
   .schedule-table .hdr-fixed { position: sticky; z-index: 30; background: #2c5282; }
   .schedule-table .hdr-day-fixed { position: sticky; z-index: 30; }
   .header-day.sat { background: #dbeafe; color: #1a56aa; }
@@ -432,12 +435,9 @@
       <button class="btn btn-primary" style="margin-left:auto;" onclick="renderStudentView()">🔍 조회</button>
     </div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-    <div class="legend" style="margin-bottom:0;">
+  <div class="legend">
       <div class="legend-item"><div class="legend-box" style="background:var(--exam)"></div> 내신기간</div>
       <div class="legend-item"><div class="legend-box" style="background:var(--vacation)"></div> 방학기간</div>
-    </div>
-    <button class="btn btn-secondary" onclick="printStudentView()" style="display:flex;align-items:center;gap:6px;">🖨️ 인쇄</button>
   </div>
   <div id="studentViewOutput"></div>
 </div>
@@ -1823,13 +1823,13 @@ function renderStudentView() {
     <th class="col-info hdr-fixed-1" style="min-width:160px;padding:6px 10px;font-weight:700;left:44px;">반</th>
     <th class="col-info hdr-fixed-2" style="min-width:94px;padding:6px 10px;font-weight:700;left:204px;">이름</th>
     <th class="col-info hdr-fixed-3" style="min-width:94px;padding:6px 10px;font-weight:700;left:298px;">학교</th>
-    <th class="col-info" style="min-width:94px;padding:6px 10px;font-weight:700;background:#2c5282;color:#fff;position:sticky;top:0;">학년</th>`;
+    <th class="col-info hdr-fixed-4" style="min-width:94px;padding:6px 10px;font-weight:700;left:446px;">학년</th>`;
   let headerDay=`<tr>
     <th style="position:sticky;top:31px;left:0;z-index:50;background:#e8edf5;min-width:44px;"></th>
     <th class="hdr-day-fixed-1" style="min-width:160px;left:44px;"></th>
     <th class="hdr-day-fixed-2" style="min-width:94px;left:204px;"></th>
     <th class="hdr-day-fixed-3" style="min-width:94px;left:298px;"></th>
-    <th style="position:sticky;top:31px;background:#e8edf5;min-width:94px;"></th>`;
+    <th class="hdr-day-fixed-4" style="min-width:94px;left:446px;"></th>`;
   dates.forEach(d=>{
     const day=d.getDay();
     const dayStr=DAYS_KO[day];
@@ -1854,7 +1854,7 @@ function renderStudentView() {
     <td class="col-info col-class col-fixed" style="position:sticky;left:44px;z-index:5;background:var(--bg2);min-width:160px;">${s.class}</td>
     <td class="col-info col-fixed" style="position:sticky;left:204px;z-index:5;background:var(--bg2);min-width:94px;">${s.name}</td>
     <td class="col-info col-fixed" style="position:sticky;left:298px;z-index:5;background:var(--bg2);min-width:94px;">${s.school}</td>
-    <td class="col-info" style="min-width:94px;">${s.grade}</td>`;
+    <td class="col-info col-fixed col-fixed-4" style="position:sticky;left:446px;z-index:5;background:var(--bg2);min-width:94px;">${s.grade}</td>`;
     dates.forEach(d => {
       // 여러 일정 중 매칭되는 것 우선순위: 마 > 첫 > 내신 > 방학
       let cell = null;
