@@ -233,20 +233,20 @@
       <div class="title">학생별 일정보기</div>
       <div class="desc">반·이름·학교·학년별 필터로 내신/방학 일정을 시각적으로 확인</div>
     </div>
-    <div class="home-card" onclick="showPage('school-view')">
-      <div class="icon">🏫</div>
-      <div class="title">학교별 현황보기</div>
-      <div class="desc">학교별 학년별 인원 현황 및 내신·방학 일정 확인</div>
+    <div class="home-card" onclick="showPage('schedule-input')">
+      <div class="icon">📅</div>
+      <div class="title">학교별 일정 입력</div>
+      <div class="desc">학교별 내신·방학 시작일·종료일 입력 및 수정</div>
     </div>
     <div class="home-card" onclick="requireAdmin('upload')">
       <div class="icon">📤</div>
       <div class="title">학생명단 업로드</div>
       <div class="desc">엑셀 파일로 학생 명단(반·이름·학교·학년)을 업로드 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
     </div>
-    <div class="home-card" onclick="showPage('schedule-input')">
-      <div class="icon">📅</div>
-      <div class="title">학교별 일정 입력</div>
-      <div class="desc">학교별 내신·방학 시작일·종료일 입력 및 수정</div>
+    <div class="home-card" onclick="requireAdmin('school-view')">
+      <div class="icon">🏫</div>
+      <div class="title">학교별 현황보기</div>
+      <div class="desc">학교별 학년별 인원 현황 및 내신·방학 일정 확인 <span style="font-size:11px;color:#c0392b;">🔒 관리자</span></div>
     </div>
     <div class="home-card" onclick="requireAdmin('sched-upload')" style="grid-column:1/-1;max-width:600px;margin:0 auto;">
       <div class="icon">📊</div>
@@ -899,7 +899,7 @@ async function renderScheduleInput() {
 
   // Sheets 연동 상태면 먼저 최신 데이터 로드
   if (apiConfigured() && !isSyncing) {
-    el.innerHTML = '<div class="info-banner">🔄 Google Sheets에서 일정 불러오는 중...</div>';
+    el.innerHTML = '<div class="info-banner" style="text-align:center;">🔄 Google Sheets에서 일정 불러오는 중...</div>';
     await loadFromSheets();
   }
 
@@ -910,17 +910,21 @@ async function renderScheduleInput() {
     el.innerHTML = '<div class="info-banner">⚠️ 학생명단을 먼저 업로드하거나 Sheets에서 데이터를 불러오세요.</div>';
     return;
   }
-  if(siLevel && !schools.length) {
-    el.innerHTML = '<div class="info-banner">해당 학교급의 학교가 없습니다.</div>';
-    return;
-  }
+
+  // 학교 카드 HTML 생성
+  const schoolCards = schools.map(school => buildSchoolInputBlock(school)).join('');
 
   el.innerHTML =
-    `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-      <button class="btn btn-secondary" onclick="expandAllSchools()" title="모든 학교 내신·방학 일정을 펼쳐서 확인">📂 전체 펼치기</button>
-      <button class="btn btn-secondary" onclick="collapseAllSchools()" title="모든 학교 카드를 접음">📁 전체 접기</button>
+    // 상단 버튼바 (전체 펼치기/접기)
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+      <span style="font-size:12px;color:var(--text2);font-weight:600;">전체 학교:</span>
+      <button class="btn btn-secondary" onclick="expandAllSchools()" style="font-size:12px;padding:5px 12px;">📂 전체 펼치기</button>
+      <button class="btn btn-secondary" onclick="collapseAllSchools()" style="font-size:12px;padding:5px 12px;">📁 전체 접기</button>
+      <span style="margin-left:12px;font-size:12px;color:var(--text2);">
+        🟢 = 일정 입력됨 &nbsp; ⚪ = 일정 없음
+      </span>
     </div>` +
-    schools.map(school => buildSchoolInputBlock(school)).join('') +
+    schoolCards +
     `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-success" onclick="saveAllSchedules()">💾 전체 저장</button>
       <button class="btn btn-secondary" onclick="renderScheduleInput()">🔄 새로고침</button>
@@ -942,10 +946,15 @@ function getSchoolPrimaryGrade(school) {
 }
 
 // students + schoolSchedules 양쪽에서 학교 목록 합산
+// 학생명단에 있는 학교 먼저 (가나다순), 없는 학교는 뒤에 (가나다순)
 function getAllSchools() {
-  const fromStudents  = students.map(s => s.school).filter(Boolean);
-  const fromSchedules = Object.keys(schoolSchedules);
-  return [...new Set([...fromStudents, ...fromSchedules])].sort();
+  const inStudents  = new Set(students.map(s => s.school).filter(Boolean));
+  const inSchedules = new Set(Object.keys(schoolSchedules));
+  const withStudents    = [...inStudents].sort((a,b) => a.localeCompare(b,'ko'));
+  const withoutStudents = [...inSchedules]
+    .filter(s => !inStudents.has(s))
+    .sort((a,b) => a.localeCompare(b,'ko'));
+  return [...withStudents, ...withoutStudents];
 }
 
 function getSchoolGrades(school) {
@@ -1039,17 +1048,25 @@ function buildSchoolInputBlock(school) {
   const statusDot = hasAnySchedule
     ? `<span title="일정 입력됨" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27ae60;margin-right:4px;flex-shrink:0;"></span>`
     : `<span title="일정 없음" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#bdc3c7;margin-right:4px;flex-shrink:0;"></span>`;
-  return `<div class="school-input-section">
+  // 학생명단에 없는 학교면 다른 스타일
+  const inStudentList = students.some(s => s.school === school);
+  const sectionStyle = inStudentList ? '' : 'opacity:0.75;border-style:dashed;';
+  const noStudentBadge = inStudentList ? '' : '<span style="font-size:10px;background:#f39c12;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">명단 외</span>';
+
+  return `<div class="school-input-section" style="${sectionStyle}">
     <div class="school-input-header" onclick="toggleSchoolBlock('block-${sId}')">
-      <span class="sch-name">${statusDot}🏫 ${school}</span>
+      <span class="sch-name">${statusDot}🏫 ${school}${noStudentBadge}</span>
       <span class="sch-level-badge">${schoolType}</span>
       <span style="display:flex;gap:6px;">
         <button class="sch-save-btn" id="savebtn-${sId}"
           onclick="event.stopPropagation();saveOneSchool('${schoolEscForBtn}')"
           title="${school} 일정만 저장">💾 저장</button>
-        <button class="sch-save-btn" style="background:#e74c3c;"
+        <button class="sch-save-btn" style="background:#e67e22;"
           onclick="event.stopPropagation();confirmResetOneSchool('${schoolEscForBtn}')"
-          title="${school} 일정 초기화">🗑️</button>
+          title="${school} 일정 초기화">↺ 초기화</button>
+        <button class="sch-save-btn" style="background:#c0392b;"
+          onclick="event.stopPropagation();confirmDeleteSchool('${schoolEscForBtn}')"
+          title="${school} 학교 완전 삭제">✕ 삭제</button>
       </span>
       <span class="sch-arrow" id="arrow-${sId}">▼</span>
     </div>
@@ -1430,6 +1447,40 @@ async function saveOneSchool(school) {
 }
 
 // 전체 일정 초기화
+// 학교 완전 삭제 (schoolSchedules + 학생명단에서 제거)
+async function confirmDeleteSchool(school) {
+  const hasStudents = students.some(s => s.school === school);
+  const msg = hasStudents
+    ? `⚠️ [${school}]을(를) 완전히 삭제하시겠습니까?
+
+이 학교 학생 ${students.filter(s=>s.school===school).length}명도 명단에서 함께 삭제됩니다.`
+    : `⚠️ [${school}]을(를) 완전히 삭제하시겠습니까?
+
+일정 데이터가 모두 삭제됩니다.`;
+  if (!confirm(msg)) return;
+
+  // 1. schoolSchedules에서 삭제
+  delete schoolSchedules[school];
+  // 2. 학생명단에서 해당 학교 학생 삭제
+  if (hasStudents) {
+    students = students.filter(s => s.school !== school);
+  }
+  delete _chkState[school];
+  save();
+
+  if (apiConfigured()) {
+    showSyncStatus('☁️ Sheets에서 삭제 중...', 'loading');
+    const p1 = apiPost('clearAllSchedules', { schools: [school] });
+    const p2 = hasStudents ? saveStudentsToSheets(students) : Promise.resolve(true);
+    const [r1, r2] = await Promise.all([p1, p2]);
+    if (r1 && r1.ok) showSyncStatus(`✅ [${school}] 완전 삭제 완료!`, 'success');
+    else             showSyncStatus(`✅ 로컬 삭제 완료 (Sheets 반영 실패)`, 'error');
+  } else {
+    showSyncStatus(`✅ [${school}] 삭제 완료!`, 'success');
+  }
+  renderScheduleInput();
+}
+
 async function confirmResetAllSchedules() {
   const msg = '⚠️ 모든 학교의 내신·방학 일정이 삭제됩니다.\n\n다음 연도 일정 입력을 위해 초기화하려면 확인을 누르세요.\n(학생명단은 유지됩니다)';
   if (!confirm(msg)) return;
