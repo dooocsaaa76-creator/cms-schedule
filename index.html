@@ -1636,6 +1636,32 @@ async function deleteStudent(idx, name) {
   renderStudentView();
 }
 
+// 반 select 변경 핸들러
+function onAddClassSelect() {
+  const sel   = document.getElementById('add-class-select');
+  const input = document.getElementById('add-class');
+  if (sel.value === '__direct__') {
+    input.style.display = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = '';
+  }
+}
+
+// 학교 select 변경 핸들러
+function onAddSchoolSelect() {
+  const sel   = document.getElementById('add-school-select');
+  const input = document.getElementById('add-school');
+  if (sel.value === '__direct__') {
+    input.style.display = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = '';
+  }
+}
+
 // 학생 추가 폼 표시
 function showAddStudentRow() {
   const form = document.getElementById('addStudentForm');
@@ -1644,9 +1670,17 @@ function showAddStudentRow() {
 
 // 학생 추가 저장
 async function confirmAddStudent() {
-  const cls   = document.getElementById('add-class')?.value  || '';
-  const name  = document.getElementById('add-name')?.value.trim()  || '';
-  const school= document.getElementById('add-school')?.value.trim()|| '';
+  // 반: select에서 선택했으면 select값, 직접입력이면 input값
+  const clsSel = document.getElementById('add-class-select')?.value || '';
+  const cls    = clsSel === '__direct__' || clsSel === ''
+    ? (document.getElementById('add-class')?.value.trim() || '')
+    : clsSel;
+  const name   = document.getElementById('add-name')?.value.trim() || '';
+  // 학교: select에서 선택했으면 select값, 직접입력이면 input값
+  const schSel = document.getElementById('add-school-select')?.value || '';
+  const school = schSel === '__direct__' || schSel === ''
+    ? (document.getElementById('add-school')?.value.trim() || '')
+    : schSel;
   const grade = document.getElementById('add-grade')?.value  || '';
   if (!name) { alert('이름을 입력해주세요.'); return; }
   if (!grade) { alert('학년을 선택해주세요.'); return; }
@@ -1896,18 +1930,25 @@ function renderStudentView() {
       <div style="font-weight:700;margin-bottom:10px;font-size:14px;">➕ 학생 추가</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;">
         <div><label style="font-size:11px;font-weight:600;color:var(--text2);">반</label>
-          <input type="text" id="add-class" placeholder="반 입력 또는 선택" list="add-class-list"
-            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
-          <datalist id="add-class-list">
-            ${[...new Set(students.map(s=>s.class))].filter(Boolean).sort().map(c=>`<option value="${c}">`).join('')}
-          </datalist></div>
+          <select id="add-class-select" onchange="onAddClassSelect()"
+            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;margin-bottom:4px;">
+            <option value="">-- 선택 --</option>
+            ${[...new Set(students.map(s=>s.class))].filter(Boolean).sort().map(c=>`<option value="${c}">${c}</option>`).join('')}
+            <option value="__direct__">직접 입력...</option>
+          </select>
+          <input type="text" id="add-class" placeholder="직접 입력" 
+            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;display:none;"></div>
         <div><label style="font-size:11px;font-weight:600;color:var(--text2);">이름 *</label>
           <input type="text" id="add-name" placeholder="이름 입력" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;"></div>
         <div><label style="font-size:11px;font-weight:600;color:var(--text2);">학교</label>
-          <input type="text" id="add-school" placeholder="학교 입력 또는 선택" list="add-school-list" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
-          <datalist id="add-school-list">
-            ${[...new Set(students.map(s=>s.school))].filter(Boolean).sort().map(s=>`<option value="${s}">`).join('')}
-          </datalist></div>
+          <select id="add-school-select" onchange="onAddSchoolSelect()"
+            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;margin-bottom:4px;">
+            <option value="">-- 선택 --</option>
+            ${[...new Set(students.map(s=>s.school))].filter(Boolean).sort().map(s=>`<option value="${s}">${s}</option>`).join('')}
+            <option value="__direct__">직접 입력...</option>
+          </select>
+          <input type="text" id="add-school" placeholder="학교명 직접 입력"
+            style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;display:none;"></div>
         <div><label style="font-size:11px;font-weight:600;color:var(--text2);">학년</label>
           <select id="add-grade" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:7px;font-size:13px;font-family:inherit;">
             <option value="">선택</option>
@@ -1916,7 +1957,7 @@ function renderStudentView() {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary" onclick="confirmAddStudent()">💾 저장</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('addStudentForm').style.display='none'">취소</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('addStudentForm').style.display='none';['add-class-select','add-school-select'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});['add-class','add-school'].forEach(id=>{const e=document.getElementById(id);if(e){e.value='';e.style.display='none';}});">취소</button>
       </div>
     </div>`;
 }
