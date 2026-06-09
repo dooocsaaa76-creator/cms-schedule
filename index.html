@@ -716,9 +716,8 @@ async function loadFromFirebase() {
       fbGet('schedules')
     ]);
 
-    // 학생 데이터 처리
+    // 학생 데이터: Firebase 데이터를 항상 우선 (로컬 캐시 완전 교체)
     if (fbStudents && !wasUploading) {
-      // Firebase students: 배열 또는 객체 형태 모두 처리
       const arr = Array.isArray(fbStudents)
         ? fbStudents.filter(Boolean)
         : Object.values(fbStudents).filter(Boolean);
@@ -728,16 +727,15 @@ async function loadFromFirebase() {
       }
     }
 
-    // 일정 데이터 처리
+    // 일정 데이터: Firebase 데이터로 완전 교체 (머지하지 않음 — 충돌 방지)
     if (fbSchedules) {
-      Object.entries(fbSchedules).forEach(([school, schData]) => {
-        if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
-        if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
-        if (schData && schData.grades) {
-          Object.entries(schData.grades).forEach(([grade, d]) => {
-            schoolSchedules[school].grades[grade] = d;
-          });
-        }
+      // 기존 로컬 일정 초기화 후 Firebase 데이터로 덮어씀
+      schoolSchedules = {};
+      Object.entries(fbSchedules).forEach(([fbKey, schData]) => {
+        if (!schData) return;
+        // _name 필드로 원본 학교명 복원, 없으면 fbKey 사용
+        const school = schData._name || fbKey.replace(/_/g, ' ');
+        schoolSchedules[school] = { grades: schData.grades || {} };
       });
       localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
     }
