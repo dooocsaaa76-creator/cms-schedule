@@ -1926,8 +1926,8 @@ function renderStudentView() {
     return `<tr>${rowHtml}</tr>`;
   }).join('');
 
-  // 콤보 데이터 최신화
-  classListForAdd  = [...new Set(filtered.map(s=>s.class))].filter(Boolean).sort();
+  // 콤보 데이터: 필터된 목록이 아닌 전체 students에서 추출
+  classListForAdd  = [...new Set(students.map(s=>s.class))].filter(Boolean).sort();
   schoolListForAdd = [...new Set(students.map(s=>s.school))].filter(Boolean).sort();
 
   out.innerHTML = `<div class="schedule-wrap"><table class="schedule-table" id="studentTable">${headerDate}${headerDay}${rows}</table></div>
