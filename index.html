@@ -527,33 +527,27 @@ function showSyncStatus(msg, type='info') {
   }
 }
 
-// Apps Script CORS 우회: JSONP 방식으로 GET 요청
-function apiGet(action) {
+// Apps Script CORS 우회: JSONP 방식으로 GET 요청 (타임아웃 30초, 자동 재시도)
+function apiGetOnce(action, timeoutMs) {
   if (!apiConfigured()) return Promise.resolve(null);
   return new Promise((resolve) => {
-    const cbName = 'cb_' + Date.now();
+    const cbName = 'cb_' + Date.now() + '_' + (++_cbCounter);
     const script = document.createElement('script');
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       delete window[cbName];
-      document.body.removeChild(script);
-      showSyncStatus('⚠️ 연결 시간 초과 — URL과 배포 설정을 확인해주세요', 'error');
-      resolve(null);
-    }, 15000);
+      if (document.body.contains(script)) document.body.removeChild(script);
+      resolve(null); // 타임아웃 시 null 반환 (재시도는 apiGet에서)
+    }, timeoutMs || 30000);
     window[cbName] = (data) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       delete window[cbName];
       if (document.body.contains(script)) document.body.removeChild(script);
-      if (data && data.error) {
-        showSyncStatus('⚠️ 서버 오류: ' + data.error, 'error');
-        resolve(null);
-      } else {
-        resolve(data);
-      }
+      resolve((data && data.error) ? null : data);
     };
     script.src = `${window.API_URL}?action=${action}&callback=${cbName}`;
     script.onerror = () => {
@@ -561,11 +555,28 @@ function apiGet(action) {
       settled = true;
       clearTimeout(timer);
       delete window[cbName];
-      showSyncStatus('⚠️ 스크립트 로드 실패 — URL을 확인해주세요', 'error');
       resolve(null);
     };
     document.body.appendChild(script);
   });
+}
+
+async function apiGet(action) {
+  if (!apiConfigured()) return null;
+  // 1차 시도
+  let result = await apiGetOnce(action, 30000);
+  if (result) return result;
+  // 2초 후 2차 시도
+  showSyncStatus('🔄 재연결 시도 중...', 'loading');
+  await new Promise(r => setTimeout(r, 2000));
+  result = await apiGetOnce(action, 30000);
+  if (result) return result;
+  // 3초 후 3차 시도
+  showSyncStatus('🔄 마지막 재시도 중...', 'loading');
+  await new Promise(r => setTimeout(r, 3000));
+  result = await apiGetOnce(action, 30000);
+  if (!result) showSyncStatus('⚠️ 서버 응답 없음 - 로컬 데이터를 사용합니다', 'error');
+  return result;
 }
 
 // JSONP 단일 요청
@@ -2643,7 +2654,15 @@ window.addEventListener('load', async () => {
   await loadConfigUrl();
   const connected = apiConfigured();
   updateSheetsBanner(connected);
+
   if (connected) {
+    // 2. 로컬 캐시 있으면 즉시 UI 사용 가능 상태로
+    if (students.length > 0 || Object.keys(schoolSchedules).length > 0) {
+      updateSheetsBanner(true);
+    }
+    // 3. Apps Script 웜업 ping (콜드스타트 해소) - 백그라운드
+    apiGetOnce('ping', 10000).catch(() => {});
+    // 4. 실제 데이터 로드
     await loadFromSheets();
   }
 });
