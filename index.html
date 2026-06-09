@@ -481,6 +481,8 @@
 <script>
 // ===== CONFIG =====
 window.API_URL = localStorage.getItem('cms_api_url') || 'https://script.google.com/macros/s/AKfycbw1oRRSCXO2chjrb2lpLMM8TuIYtP2glgz0g-5Q2sfuq-OYME4BQynTnKdPo6fJRdTL/exec';
+// Firebase Realtime Database URL
+const FIREBASE_URL = 'https://cms-schedule-default-rtdb.firebaseio.com';
 
 // ===== STATE =====
 let students = JSON.parse(localStorage.getItem('cms_students') || '[]');
@@ -498,7 +500,72 @@ const TYPE_KEYS = {
   '겨울방학': {start:'win_start', end:'win_end', open:'win_open', close:'win_close', label:'겨울방학'},
 };
 
-// ===== SHEETS API =====
+// ===== FIREBASE API =====
+// Firebase REST API: fetch 기반 (CORS 완전 지원, JSONP 불필요)
+
+async function fbGet(path) {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/${path}.json`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.error('Firebase GET error:', path, e);
+    return null;
+  }
+}
+
+async function fbSet(path, data) {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/${path}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.error('Firebase SET error:', path, e);
+    return null;
+  }
+}
+
+async function fbPatch(path, data) {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/${path}.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.error('Firebase PATCH error:', path, e);
+    return null;
+  }
+}
+
+async function fbDelete(path) {
+  try {
+    const res = await fetch(`${FIREBASE_URL}/${path}.json`, {
+      method: 'DELETE'
+    });
+    return res.ok;
+  } catch(e) {
+    console.error('Firebase DELETE error:', path, e);
+    return false;
+  }
+}
+
+// Firebase 연결 확인
+async function fbConfigured() {
+  // Firebase URL이 설정되어 있으면 항상 true (URL은 코드에 하드코딩)
+  return !!FIREBASE_URL;
+}
+
+// ===== SHEETS API (마이그레이션 전용으로 유지) =====
 function apiConfigured() {
   const url = window.API_URL || '';
   return !!(url && url !== 'YOUR_APPS_SCRIPT_URL_HERE' && url.startsWith('http'));
@@ -618,79 +685,67 @@ function apiPost(action, data) {
 
 // 학생 명단 전체 저장 — 20명씩 청크로 나눠서 순차 전송
 async function saveStudentsToSheets(studentList) {
+  // Firebase로 저장 (배열 형태)
   if (!studentList || studentList.length === 0) return false;
-  const CHUNK = 20;
-  const total = studentList.length;
-
-  // 첫 청크: clear=true 로 시트 전체 초기화 후 저장
-  // 나머지: clear=false 로 이어서 추가
-  for (let i = 0; i < total; i += CHUNK) {
-    const chunk = studentList.slice(i, i + CHUNK);
-    const isFirst = (i === 0);
-    const progress = Math.min(i + CHUNK, total);
-    showSyncStatus(`☁️ Sheets 저장 중... (${progress}/${total}명)`, 'loading');
-
-    let r = await apiPost('saveStudentsChunk', { students: chunk, clear: isFirst });
-    if (!r || !r.ok) {
-      // 800ms 후 재시도
-      await new Promise(res => setTimeout(res, 800));
-      r = await apiPost('saveStudentsChunk', { students: chunk, clear: isFirst });
-      if (!r || !r.ok) {
-        showSyncStatus(`❌ ${progress}/${total}명 저장 실패`, 'error');
-        return false;
-      }
-    }
-
-    // 첫 청크(초기화) 후 300ms 대기 - Sheets가 초기화 완료될 시간 확보
-    if (isFirst) await new Promise(res => setTimeout(res, 300));
-    // 이후 청크 사이는 150ms
-    else if (i + CHUNK < total) await new Promise(res => setTimeout(res, 150));
-  }
-  return true;
+  showSyncStatus(`☁️ Firebase에 ${studentList.length}명 저장 중...`, 'loading');
+  const r = await fbSet('students', studentList);
+  return r !== null;
 }
 
 // 앱 시작 시 Sheets에서 데이터 로드
 async function loadFromSheets() {
-  if (!apiConfigured()) return;
+  // Firebase로 리다이렉트
+  await loadFromFirebase();
+}
+
+async function loadFromFirebase() {
   const wasUploading = isSyncing;
   const hasLocal = students.length > 0 || Object.keys(schoolSchedules).length > 0;
 
   showSyncStatus(
-    hasLocal ? `📦 캐시 사용 중 (${students.length}명) — Sheets 동기화 중...`
-             : '🔄 Sheets에서 데이터 로드 중...',
+    hasLocal ? `📦 캐시 사용 중 (${students.length}명) — Firebase 동기화 중...`
+             : '🔄 Firebase에서 데이터 로드 중...',
     'loading'
   );
 
   try {
-    // 학생 명단 로드
-    showSyncStatus('🔄 학생 명단 로드 중...', 'loading');
-    const sData = await apiGet('getStudents');
-    if (sData && sData.students && sData.students.length > 0 && !wasUploading) {
-      students = sData.students;
-      localStorage.setItem('cms_students', JSON.stringify(students));
-    }
-    const studentCount = students.length;
-    showSyncStatus(`✅ 학생 ${studentCount}명 — 학교 일정 로드 중...`, 'loading');
+    // 학생 + 일정 동시 요청 (Firebase는 빠르므로 병렬 처리)
+    showSyncStatus('🔄 데이터 로드 중...', 'loading');
+    const [fbStudents, fbSchedules] = await Promise.all([
+      fbGet('students'),
+      fbGet('schedules')
+    ]);
 
-    // 학교 일정 로드 (단일 요청 — Code.gs에서 배열 일괄 읽기로 최적화됨)
-    const schData = await apiGet('getSchedules');
-    if (schData && schData.schedules) {
-      const sheetsData = schData.schedules;
-      Object.keys(sheetsData).forEach(school => {
+    // 학생 데이터 처리
+    if (fbStudents && !wasUploading) {
+      // Firebase students: 배열 또는 객체 형태 모두 처리
+      const arr = Array.isArray(fbStudents)
+        ? fbStudents.filter(Boolean)
+        : Object.values(fbStudents).filter(Boolean);
+      if (arr.length > 0) {
+        students = arr;
+        localStorage.setItem('cms_students', JSON.stringify(students));
+      }
+    }
+
+    // 일정 데이터 처리
+    if (fbSchedules) {
+      Object.entries(fbSchedules).forEach(([school, schData]) => {
         if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
         if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
-        Object.entries(sheetsData[school].grades || {}).forEach(([grade, d]) => {
-          schoolSchedules[school].grades[grade] = d;
-        });
+        if (schData && schData.grades) {
+          Object.entries(schData.grades).forEach(([grade, d]) => {
+            schoolSchedules[school].grades[grade] = d;
+          });
+        }
       });
       localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
-      showSyncStatus(`✅ 동기화 완료 — ${studentCount}명, ${Object.keys(schoolSchedules).length}개 학교`, 'success');
-    } else {
-      showSyncStatus(`⚠️ 학생 ${studentCount}명 완료 / 일정 로드 실패 — 로컬 사용`, 'error');
     }
+
+    showSyncStatus(`✅ 로드 완료 — ${students.length}명, ${Object.keys(schoolSchedules).length}개 학교`, 'success');
   } catch(e) {
-    showSyncStatus('⚠️ 로드 오류 — 로컬 데이터 사용', 'error');
-    console.error('loadFromSheets error:', e);
+    showSyncStatus('⚠️ Firebase 로드 오류 — 로컬 데이터 사용', 'error');
+    console.error('loadFromFirebase error:', e);
   }
   isSyncing = false;
 }
@@ -701,72 +756,19 @@ function save() {
   localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
 }
 
-// 학교 5개씩 배치로 나눠서 전송 (URL 길이 제한 + Apps Script 제한 대응)
+// Firebase: 학교 일정 저장 (단순 PATCH — 빠름)
 async function saveScheduleToSheets(schoolsObj) {
-  if (!apiConfigured()) return false;
   const data = schoolsObj || schoolSchedules;
-  const schools = Object.keys(data);
-  if (schools.length === 0) return true;
-
-  const BATCH = 5; // 한 번에 5개 학교씩
-  let allOk = true;
-
-  for (let i = 0; i < schools.length; i += BATCH) {
-    const batchSchools = schools.slice(i, i + BATCH);
-    const batchData = {};
-    batchSchools.forEach(s => { batchData[s] = data[s]; });
-
-    const totalBatches = Math.ceil(schools.length / BATCH);
-    const curBatch = Math.floor(i / BATCH) + 1;
-    showSyncStatus(`☁️ Sheets 저장 중... (${curBatch}/${totalBatches} 묶음) ${batchSchools[0]} 외 ${batchSchools.length-1}`, 'loading');
-
-    // payload 크기 체크
-    const encoded = encodeURIComponent(JSON.stringify(batchData));
-    let r = null;
-
-    if (encoded.length <= 6000) {
-      // 한 번에 전송
-      r = await apiPost('saveSchedulesBatch', batchData);
-    } else {
-      // 너무 크면 학교 1개씩 전송
-      let batchOk = true;
-      for (const school of batchSchools) {
-        const singleData = { [school]: data[school] };
-        const singleEncoded = encodeURIComponent(JSON.stringify(singleData));
-        let sr;
-        if (singleEncoded.length <= 6000) {
-          sr = await apiPost('saveSchedulesBatch', singleData);
-        } else {
-          // 학년별로 더 쪼개기
-          const grades = Object.keys((data[school] && data[school].grades) || {});
-          for (const grade of grades) {
-            const payload = { school, grade, ...(data[school].grades[grade] || {}) };
-            const gr = await apiPost('saveSchedule', payload);
-            if (!gr || !gr.ok) batchOk = false;
-            await new Promise(res => setTimeout(res, 200));
-          }
-          continue;
-        }
-        if (!sr || !sr.ok) batchOk = false;
-        await new Promise(res => setTimeout(res, 200));
-      }
-      if (!batchOk) allOk = false;
-      continue;
-    }
-
-    if (!r || !r.ok) {
-      // 실패 시 500ms 후 재시도
-      await new Promise(res => setTimeout(res, 500));
-      r = await apiPost('saveSchedulesBatch', batchData);
-      if (!r || !r.ok) { allOk = false; console.warn('배치 저장 실패:', batchSchools); }
-    }
-
-    // 배치 사이 간격
-    if (i + BATCH < schools.length) {
-      await new Promise(res => setTimeout(res, 400));
-    }
-  }
-  return allOk;
+  if (Object.keys(data).length === 0) return true;
+  showSyncStatus('☁️ Firebase에 일정 저장 중...', 'loading');
+  // 학교명에 특수문자가 있으면 Firebase key로 변환
+  const safeData = {};
+  Object.entries(data).forEach(([school, v]) => {
+    const key = school.replace(/[.#$\[\]]/g, '_');
+    safeData[key] = { ...v, _name: school }; // 원본 이름 보존
+  });
+  const r = await fbSet('schedules', safeData);
+  return r !== null;
 }
 
 // ===== PAGE NAV =====
@@ -1449,8 +1451,9 @@ async function saveOneSchool(school) {
 
   // Sheets 저장
   if (apiConfigured()) {
-    const chunk = { [school]: schoolSchedules[school] };
-    const r = await apiPost('saveSchedulesBatch', chunk);
+    // Firebase: 학교명 특수문자 처리 후 저장
+    const fbKey = school.replace(/[.#$\[\]]/g, '_');
+    const r = await fbPatch('schedules', { [fbKey]: { ...schoolSchedules[school], _name: school } });
     if (btn) {
       if (r && r.ok) {
         btn.textContent = '✅ 저장됨'; btn.className = 'sch-save-btn done';
@@ -1492,7 +1495,8 @@ async function confirmDeleteSchool(school) {
 
   if (apiConfigured()) {
     showSyncStatus('☁️ Sheets에서 삭제 중...', 'loading');
-    const p1 = apiPost('clearAllSchedules', { schools: [school] });
+    const fbKey = school.replace(/[.#$\[\]]/g, '_');
+    const p1 = fbDelete('schedules/' + fbKey);
     const p2 = hasStudents ? saveStudentsToSheets(students) : Promise.resolve(true);
     const [r1, r2] = await Promise.all([p1, p2]);
     if (r1 && r1.ok) showSyncStatus(`✅ [${school}] 완전 삭제 완료!`, 'success');
@@ -1626,19 +1630,11 @@ async function deleteStudent(idx, name) {
   students.splice(idx, 1);
   save();
   // Sheets 동기화
-  if (apiConfigured()) {
-    showSyncStatus('☁️ Sheets에서 삭제 중...', 'loading');
-    // 이름으로 단일 행 삭제 — 전체 재전송보다 훨씬 빠름
-    const r = await apiPost('deleteStudent', { name });
-    if (r && r.ok) showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
-    else {
-      const ok = await saveStudentsToSheets(students);
-      if (ok) showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
-      else    showSyncStatus('✅ 로컬 삭제 완료 (Sheets 동기화 실패)', 'error');
-    }
-  } else {
-    showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
-  }
+  // Firebase: 전체 배열 재저장
+  showSyncStatus('☁️ Firebase에서 삭제 중...', 'loading');
+  const ok2 = await saveStudentsToSheets(students);
+  if (ok2) showSyncStatus(`✅ ${name} 삭제 완료!`, 'success');
+  else     showSyncStatus('✅ 로컬 삭제 완료 (Firebase 동기화 실패)', 'error');
   renderStudentView();
 }
 
@@ -1668,20 +1664,11 @@ async function confirmAddStudent() {
   ['add-name','add-school'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   ['add-class','add-grade'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
 
-  if (apiConfigured()) {
-    showSyncStatus('☁️ Sheets에 저장 중...', 'loading');
-    // 1명만 append — 전체 재전송보다 수십 배 빠름
-    const r = await apiPost('appendStudent', newStudent);
-    if (r && r.ok) showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
-    else {
-      // fallback: 전체 재전송
-      const ok = await saveStudentsToSheets(students);
-      if (ok) showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
-      else    showSyncStatus('✅ 로컬 추가 완료 (Sheets 동기화 실패)', 'error');
-    }
-  } else {
-    showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
-  }
+  // Firebase: 전체 배열 저장 (빠름)
+  showSyncStatus('☁️ Firebase에 저장 중...', 'loading');
+  const ok = await saveStudentsToSheets(students);
+  if (ok) showSyncStatus(`✅ ${name} 추가 완료!`, 'success');
+  else    showSyncStatus('✅ 로컬 추가 완료 (Firebase 동기화 실패)', 'error');
   initStudentFilters();
   renderStudentView();
 }
@@ -2350,13 +2337,13 @@ function updateSheetsBanner(connected) {
     b.style.background = '#d4edda';
     b.style.color = '#145a24';
     b.style.border = '1px solid #a3d9b1';
-    b.textContent = '☁️ Google Sheets 연동됨 — 데이터가 자동으로 공유됩니다';
+    b.textContent = '🔥 Firebase 연동됨 — 빠른 실시간 동기화';
   } else {
     b.style.display = 'block';
     b.style.background = '#fff7e6';
     b.style.color = '#7b4a00';
     b.style.border = '1px solid #f6d860';
-    b.textContent = '💾 로컬 저장 모드 — Google Sheets 연동 시 팀과 데이터 공유 가능';
+    b.textContent = '💾 로컬 저장 모드 — Firebase 연동 시 팀과 데이터 공유 가능';
   }
 }
 
@@ -2666,16 +2653,9 @@ window.addEventListener('load', async () => {
   const connected = apiConfigured();
   updateSheetsBanner(connected);
 
-  if (connected) {
-    // 2. 로컬 캐시 있으면 즉시 UI 사용 가능 상태로
-    if (students.length > 0 || Object.keys(schoolSchedules).length > 0) {
-      updateSheetsBanner(true);
-    }
-    // 3. Apps Script 웜업 ping (콜드스타트 해소) - 백그라운드
-    apiGetOnce('ping', 10000).catch(() => {});
-    // 4. 실제 데이터 로드
-    await loadFromSheets();
-  }
+  // Firebase: 항상 연결됨 (콜드스타트 없음)
+  updateSheetsBanner(true);
+  await loadFromFirebase();
 });
 
 // drag & drop
