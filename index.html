@@ -549,7 +549,10 @@ function apiGetOnce(action, timeoutMs) {
       if (document.body.contains(script)) document.body.removeChild(script);
       resolve((data && data.error) ? null : data);
     };
-    script.src = `${window.API_URL}?action=${action}&callback=${cbName}`;
+    // action에 &param=value 형태 추가 파라미터 지원
+    const [baseAction, ...extraParams] = action.split('&');
+    const extraStr = extraParams.length ? '&' + extraParams.join('&') : '';
+    script.src = `${window.API_URL}?action=${baseAction}${extraStr}&callback=${cbName}`;
     script.onerror = () => {
       if (settled) return;
       settled = true;
@@ -649,37 +652,77 @@ async function saveStudentsToSheets(studentList) {
 // 앱 시작 시 Sheets에서 데이터 로드
 async function loadFromSheets() {
   if (!apiConfigured()) return;
-  showSyncStatus('🔄 Google Sheets에서 데이터 로딩 중...', 'loading');
-  isSyncing = true;
+
+  // wasUploading: 업로드 저장 중인지 기록 (학생 데이터 덮어쓰기 판단용)
+  const wasUploading = isSyncing;
+
+  const hasLocal = students.length > 0 || Object.keys(schoolSchedules).length > 0;
+  showSyncStatus(
+    hasLocal
+      ? `📦 캐시 사용 중 (${students.length}명) — Sheets 동기화 중...`
+      : '🔄 Sheets에서 데이터 로드 중...',
+    'loading'
+  );
+
   try {
-    // getAll: 단일 요청으로 학생+일정 동시 수신 (속도 개선)
-    const allData = await apiGet('getAll');
-    const sData   = allData ? { students: allData.students }   : null;
-    const schData = allData ? { schedules: allData.schedules } : null;
+    // ① 학생 명단 먼저 (작은 요청)
+    showSyncStatus('🔄 학생 명단 로드 중...', 'loading');
+    const sData = await apiGet('getStudents');
+
     if (sData && sData.students && sData.students.length > 0) {
-      // isSyncing 중(업로드 저장 중)에는 Sheets 데이터로 덮어쓰기 금지
-      if (!isSyncing) {
+      if (!wasUploading) {
         students = sData.students;
         localStorage.setItem('cms_students', JSON.stringify(students));
       }
+      showSyncStatus(`✅ 학생 ${students.length}명 — 일정 로드 중...`, 'loading');
+    } else if (!sData) {
+      showSyncStatus(`⚠️ 학생 명단 로드 실패 — 로컬 캐시 사용 (${students.length}명)`, 'error');
     }
-    if (schData && schData.schedules) {
-      // Sheets 데이터를 기존 로컬 데이터에 머지 (Sheets 우선)
-      const sheetsData = schData.schedules;
-      Object.keys(sheetsData).forEach(school => {
-        if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
-        if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
-        const sheetsGrades = sheetsData[school].grades || {};
-        Object.keys(sheetsGrades).forEach(grade => {
-          // 해당 학년 데이터 전체를 Sheets 것으로 교체
-          schoolSchedules[school].grades[grade] = sheetsGrades[grade];
+
+    // ② 학교 일정 — 중등/고등/초등 3번으로 나눠서 요청 (응답 크기 분산)
+    let schedLoadOk = false;
+    const levelParams = ['middle', 'high', 'elem'];
+    const levelLabels = ['중등', '고등', '초등'];
+    for (let li = 0; li < levelParams.length; li++) {
+      showSyncStatus(`🔄 ${levelLabels[li]} 일정 로드 중... (${li+1}/3)`, 'loading');
+      const schData = await apiGet('getSchedules&level=' + levelParams[li]);
+      if (schData && schData.schedules) {
+        const sheetsData = schData.schedules;
+        Object.keys(sheetsData).forEach(school => {
+          if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+          if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+          Object.entries(sheetsData[school].grades || {}).forEach(([grade, d]) => {
+            schoolSchedules[school].grades[grade] = d;
+          });
         });
-      });
-      localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
+        schedLoadOk = true;
+      }
     }
-    showSyncStatus('✅ 데이터 로드 완료 (' + students.length + '명, ' + Object.keys(schoolSchedules).length + '개 학교)', 'success');
+    if (schedLoadOk) {
+      localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
+      showSyncStatus(`✅ 동기화 완료 — ${students.length}명, ${Object.keys(schoolSchedules).length}개 학교`, 'success');
+    } else {
+      // 전체 한 번에 시도 (fallback)
+      showSyncStatus('🔄 일정 전체 로드 재시도...', 'loading');
+      const schAll = await apiGet('getSchedules');
+      if (schAll && schAll.schedules) {
+        Object.keys(schAll.schedules).forEach(school => {
+          if (!schoolSchedules[school]) schoolSchedules[school] = { grades: {} };
+          if (!schoolSchedules[school].grades) schoolSchedules[school].grades = {};
+          Object.entries(schAll.schedules[school].grades || {}).forEach(([grade, d]) => {
+            schoolSchedules[school].grades[grade] = d;
+          });
+        });
+        localStorage.setItem('cms_schedules', JSON.stringify(schoolSchedules));
+        showSyncStatus(`✅ 동기화 완료 — ${students.length}명, ${Object.keys(schoolSchedules).length}개 학교`, 'success');
+      } else {
+        showSyncStatus(`⚠️ 학생 ${students.length}명 완료 (일정 로드 실패 — 로컬 사용)`, 'error');
+      }
+    }
+
   } catch(e) {
-    showSyncStatus('⚠️ 로드 실패 - 로컬 데이터 사용', 'error');
+    showSyncStatus('⚠️ 로드 오류 — 로컬 데이터 사용', 'error');
+    console.error('loadFromSheets error:', e);
   }
   isSyncing = false;
 }
